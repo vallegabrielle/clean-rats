@@ -1,0 +1,157 @@
+import { StyleSheet } from 'react-native';
+import { COLORS } from '../../constants';
+
+export const styles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  sheet: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    maxHeight: '70%',
+    borderTopWidth: 1,
+    borderColor: COLORS.border,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.border,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  title: {
+    fontFamily: 'Bungee_400Regular',
+    fontSize: 18,
+    color: COLORS.text,
+    marginBottom: 16,
+  },
+  list: {
+    flexGrow: 0,
+  },
+  taskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    gap: 10,
+  },
+  taskRowCurrent: {
+    borderColor: COLORS.red,
+  },
+  taskRowDisabled: {
+    opacity: 0.5,
+  },
+  taskInfo: {
+    flex: 1,
+    gap: 3,
+  },
+  taskName: {
+    fontFamily: 'NotoSansMono_400Regular',
+    fontSize: 15,
+    color: COLORS.text,
+  },
+  currentLabel: {
+    fontFamily: 'NotoSansMono_400Regular',
+    fontSize: 11,
+    color: COLORS.red,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  pointsBadge: {
+    backgroundColor: COLORS.background,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    alignItems: 'center',
+    minWidth: 52,
+  },
+  pointsValue: {
+    fontFamily: 'Bungee_400Regular',
+    fontSize: 16,
+    color: COLORS.red,
+  },
+  pointsLabel: {
+    fontFamily: 'NotoSansMono_400Regular',
+    fontSize: 10,
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  emptyText: {
+    fontFamily: 'NotoSansMono_400Regular',
+    fontSize: 14,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    paddingVertical: 24,
+  },
+  customBtn: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+    marginBottom: 8,
+  },
+  customBtnText: {
+    fontFamily: 'NotoSansMono_400Regular',
+    fontSize: 14,
+    color: COLORS.red,
+  },
+  customForm: {
+    gap: 8,
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: 10,
+    padding: 14,
+    color: COLORS.text,
+    fontFamily: 'NotoSansMono_400Regular',
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  customActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  cancelBtnText: {
+    fontFamily: 'NotoSansMono_400Regular',
+    fontSize: 14,
+    color: COLORS.textMuted,
+  },
+  confirmBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 10,
+    backgroundColor: COLORS.red,
+  },
+  confirmBtnDisabled: {
+    opacity: 0.4,
+  },
+  confirmBtnText: {
+    fontFamily: 'Bungee_400Regular',
+    fontSize: 14,
+    color: '#fff',
+  },
+});
