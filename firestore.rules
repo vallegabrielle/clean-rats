@@ -1,0 +1,103 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /houses/{houseId} {
+
+      function uid()    { return request.auth.uid; }
+      function isAuth() { return request.auth != null; }
+      function d()      { return request.resource.data; }
+      function cur()    { return resource.data; }
+
+      function isMember() {
+        return isAuth() && uid() in cur().memberIds;
+      }
+
+      function isPending() {
+        return isAuth()
+            && cur().pendingMemberIds != null
+            && uid() in cur().pendingMemberIds;
+      }
+
+      // ── Campos imutáveis após criação ─────────────────────────────────────
+      //   Nenhuma operação do cliente pode alterar id, code ou createdAt.
+      function immutableUnchanged() {
+        return d().id        == cur().id
+            && d().code      == cur().code
+            && d().createdAt == cur().createdAt;
+      }
+
+      // ── memberIds: somente ±1, em direção válida ──────────────────────────
+      //
+      //   Casos permitidos:
+      //   (a) Sem mudança.
+      //   (b) Shrink de 1: o próprio requester saiu; os demais UID são
+      //       subconjunto dos antigos (ninguém novo adicionado).
+      //   (c) Grow de 1: um UID pendente foi aprovado; todos os membros
+      //       anteriores são preservados; o UID adicionado existia em
+      //       pendingMemberIds (não um UID arbitrário).
+      function memberIdsValid() {
+        let curPending = cur().pendingMemberIds != null
+                         ? cur().pendingMemberIds : [];
+        let allowedSet = cur().memberIds.toSet().union(curPending.toSet());
+
+        return d().memberIds == cur().memberIds
+
+            // saída: reduziu 1, quem saiu foi o próprio requester
+            || (d().memberIds.size() == cur().memberIds.size() - 1
+                && !(uid() in d().memberIds)
+                && cur().memberIds.hasAll(d().memberIds))
+
+            // aprovação: cresceu 1, UID adicionado veio dos pendentes
+            || (d().memberIds.size() == cur().memberIds.size() + 1
+                && d().memberIds.hasAll(cur().memberIds)
+                && d().memberIds.hasOnly(allowedSet));
+      }
+
+      // ── pendingMemberIds: apenas encolhe via cliente ──────────────────────
+      //   Crescimento é feito exclusivamente pela Cloud Function
+      //   joinHouseByCode via Admin SDK (não passa pelas regras).
+      //   Impede também a troca de IDs pendentes (hasAll garante subconjunto).
+      function pendingIdsValid() {
+        let curPending = cur().pendingMemberIds != null
+                         ? cur().pendingMemberIds : [];
+        let newPending = d().pendingMemberIds   != null
+                         ? d().pendingMemberIds : [];
+        return newPending.size() <= curPending.size()
+            && curPending.hasAll(newPending);
+      }
+
+      // ── history: append-only, entradas passadas imutáveis ────────────────
+      //   Evita apagar ou falsificar pontuações de períodos anteriores.
+      function historyValid() {
+        return d().history.size() >= cur().history.size()
+            && d().history.hasAll(cur().history);
+      }
+
+      // ── Read ─────────────────────────────────────────────────────────────
+      allow list: if isMember() || isPending();
+      allow get:  if isMember() || isPending();
+
+      // ── Create ───────────────────────────────────────────────────────────
+      //   Apenas usuário autenticado cria toca onde é o único membro inicial.
+      allow create: if isAuth()
+                    && uid() in d().memberIds
+                    && d().memberIds.size() == 1
+                    && d().members.size()   == 1
+                    && d().logs.size()      == 0;
+
+      // ── Update ───────────────────────────────────────────────────────────
+      //   Membros plenos podem atualizar name, prize, period, tasks, logs,
+      //   members (rename), periodStart — mas não os campos protegidos acima.
+      allow update: if isMember()
+                    && immutableUnchanged()
+                    && memberIdsValid()
+                    && pendingIdsValid()
+                    && historyValid();
+
+      // ── Delete ───────────────────────────────────────────────────────────
+      //   Apenas membros plenos podem deletar (último membro sai).
+      allow delete: if isMember();
+    }
+  }
+}

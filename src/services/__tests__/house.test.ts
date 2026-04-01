@@ -36,19 +36,23 @@ beforeEach(() => {
         n++;
         return `${n.toString(16).padStart(8, '0')}-0000-4000-8000-000000000000` as ReturnType<typeof Crypto.randomUUID>;
     });
+    // getRandomBytes returns a fixed Uint8Array so generateCode is deterministic
+    jest.mocked(Crypto.getRandomBytes).mockImplementation((count: number) =>
+        new Uint8Array(count).fill(0),
+    );
 });
 
 // ─── createHouse ────────────────────────────────────────────────────────────
 
 describe('createHouse', () => {
-    test('código tem exatamente 6 caracteres', () => {
+    test('código tem exatamente 8 caracteres', () => {
         const house = createHouse('Minha Toca', 'weekly', 'uid-1', 'Alice');
-        expect(house.code).toHaveLength(6);
+        expect(house.code).toHaveLength(8);
     });
 
-    test('código é alfanumérico maiúsculo', () => {
+    test('código usa o alfabeto Crockford Base32', () => {
         const house = createHouse('Minha Toca', 'weekly', 'uid-1', 'Alice');
-        expect(house.code).toMatch(/^[A-Z0-9]{6}$/);
+        expect(house.code).toMatch(/^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$/);
     });
 
     test('contém todos os campos obrigatórios', () => {

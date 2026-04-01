@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import { House, Member, Period, Task } from '../types';
-import { DEFAULT_TASKS } from '../constants';
+import { DEFAULT_TASKS, MAX_TASK_POINTS } from '../constants';
 import { getCurrentPeriodStart } from './period';
 
 function generateId(): string {
@@ -8,8 +8,12 @@ function generateId(): string {
 }
 
 function generateCode(): string {
-  // 6 uppercase alphanumeric chars derived from a UUID
-  return Crypto.randomUUID().replace(/-/g, '').substring(0, 6).toUpperCase();
+  // Crockford Base32 alphabet (32 chars): excludes I, L, O, U to avoid visual ambiguity.
+  // 8 chars → 32^8 ≈ 1.1 trillion combinations (vs. the previous 16^6 ≈ 16.7 million).
+  // Uses crypto-random bytes; modulo bias is zero because 256 / 32 = 8 exactly.
+  const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+  const bytes = Crypto.getRandomBytes(8);
+  return Array.from(bytes).map(b => ALPHABET[b % 32]).join('');
 }
 
 export function createHouse(
@@ -44,6 +48,7 @@ export function addMember(house: House, memberName: string): House {
 
 export function addTask(house: House, name: string, points: number): { house: House; task: Task } {
   if (points <= 0) throw new Error('Points must be greater than 0');
+  if (points > MAX_TASK_POINTS) throw new Error(`Points must be at most ${MAX_TASK_POINTS}`);
   const task: Task = { id: generateId(), name, points, isDefault: false };
   return { house: { ...house, tasks: [...house.tasks, task] }, task };
 }
@@ -54,6 +59,7 @@ export function removeTask(house: House, taskId: string): House {
 
 export function updateTask(house: House, taskId: string, name: string, points: number): House {
   if (points <= 0) throw new Error('Points must be greater than 0');
+  if (points > MAX_TASK_POINTS) throw new Error(`Points must be at most ${MAX_TASK_POINTS}`);
   return {
     ...house,
     tasks: house.tasks.map((t) => t.id === taskId ? { ...t, name, points } : t),

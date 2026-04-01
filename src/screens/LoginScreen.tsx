@@ -20,7 +20,7 @@ const GOOGLE_WEB_CLIENT_ID =
     "1010162142223-8r80emkn7ti3617ovjid0ld0c95jmsn0.apps.googleusercontent.com";
 const GOOGLE_IOS_CLIENT_ID = "1010162142223-a3n3dn0vmhhto5plek0pli1f6n2pqohv.apps.googleusercontent.com";
 const GOOGLE_ANDROID_CLIENT_ID =
-    "YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com";
+    "1010162142223-9jafdjdrkg7plbp9hvibla4s50ahltue.apps.googleusercontent.com";
 
 export default function LoginScreen() {
     const { loginWithGoogle } = useAuth();

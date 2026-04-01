@@ -11,8 +11,10 @@ import {
     getDoc,
     updateDoc,
     setDoc,
+    runTransaction,
     onSnapshot,
 } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { useHouseStore } from '../HouseContext';
 import { useAuthStore } from '../AuthContext';
 import { loadActiveHouseId } from '../../services/storage';
@@ -27,6 +29,7 @@ jest.mock('firebase/firestore', () => ({
     setDoc: jest.fn(() => Promise.resolve()),
     deleteDoc: jest.fn(() => Promise.resolve()),
     updateDoc: jest.fn(() => Promise.resolve()),
+    runTransaction: jest.fn(() => Promise.resolve()),
     onSnapshot: jest.fn(() => jest.fn()),
     query: jest.fn(() => ({})),
     where: jest.fn(() => ({})),
@@ -35,7 +38,11 @@ jest.mock('firebase/firestore', () => ({
     arrayUnion: jest.fn((value) => value),
 }));
 
-jest.mock('../../services/firebase', () => ({ db: {} }));
+jest.mock('firebase/functions', () => ({
+    httpsCallable: jest.fn(() => jest.fn(() => Promise.resolve({ data: { success: true } }))),
+}));
+
+jest.mock('../../services/firebase', () => ({ db: {}, functions: {} }));
 
 jest.mock('../AuthContext', () => ({
     useAuthStore: {
@@ -141,25 +148,19 @@ beforeEach(() => {
 
 describe('136 — fluxo completo de join', () => {
     test('request → pendente no Firestore → aprovar → membro no Firestore', async () => {
-        // ── Passo 1: user-2 solicita entrada ──────────────────────────────────
-        const house = makeHouse({ code: 'XYZ999' });
-
-        jest.mocked(getDocs).mockResolvedValue(makeQuerySnap([house]) as any);
+        // ── Passo 1: user-2 solicita entrada via Cloud Function ───────────────
         (useAuthStore.getState as jest.Mock).mockReturnValue({
             user: { uid: 'user-2', displayName: 'Bob' },
         });
+        const mockCallable = jest.fn(() =>
+            Promise.resolve({ data: { success: true, pending: true } }),
+        );
+        jest.mocked(httpsCallable).mockReturnValue(mockCallable as any);
 
         const joinResult = await useHouseStore.getState().joinHouseByCode('XYZ999');
 
         expect(joinResult).toEqual({ success: true, pending: true });
-
-        const joinPayload = jest.mocked(updateDoc).mock.calls[0][1] as Record<string, unknown>;
-        // arrayUnion mockado retorna o valor direto
-        expect(joinPayload.pendingMemberIds).toBe('user-2');
-        expect((joinPayload.pendingRequests as JoinRequest).userId).toBe('user-2');
-        // membros plenos NÃO tocados
-        expect(joinPayload).not.toHaveProperty('members');
-        expect(joinPayload).not.toHaveProperty('memberIds');
+        expect(mockCallable).toHaveBeenCalledWith({ code: 'XYZ999' });
 
         // ── Passo 2: owner aprova ─────────────────────────────────────────────
         jest.clearAllMocks();
@@ -208,33 +209,43 @@ describe('137 — fluxo de reset de período', () => {
             history: [],
         });
 
+        // runTransaction deve executar o callback e delegar tx.update → updateDoc
+        jest.mocked(runTransaction).mockImplementation(async (_db, fn) => {
+            const tx = {
+                get: jest.fn(async () => makeDocSnap(expiredHouse)),
+                update: jest.fn((...args: Parameters<typeof updateDoc>) =>
+                    jest.mocked(updateDoc)(...args),
+                ),
+            };
+            return fn(tx as any);
+        });
+
         const fireSnapshot = captureMemberSnapshot();
         useHouseStore.getState().subscribe('owner-1');
 
         // Firestore "entrega" a casa com período vencido
         await fireSnapshot(makeQuerySnap([expiredHouse]));
 
-        // Deve ter gravado o reset no Firestore
-        expect(jest.mocked(setDoc)).toHaveBeenCalledTimes(1);
-        const savedHouse = jest.mocked(setDoc).mock.calls[0][1] as House;
+        // Deve ter usado runTransaction (não setDoc direto)
+        expect(jest.mocked(runTransaction)).toHaveBeenCalledTimes(1);
+        expect(jest.mocked(updateDoc)).toHaveBeenCalledTimes(1);
+        const fields = jest.mocked(updateDoc).mock.calls[0][1] as Partial<House>;
 
         // Logs zerados
-        expect(savedHouse.logs).toEqual([]);
+        expect(fields.logs).toEqual([]);
 
         // Período arquivado no history com scores corretos
-        expect(savedHouse.history).toHaveLength(1);
-        expect(savedHouse.history[0].periodStart).toBe('2020-01-01T00:00:00.000Z');
-        expect(savedHouse.history[0].scores).toHaveLength(1);
-        expect(savedHouse.history[0].scores[0].memberId).toBe('owner-1');
-        expect(savedHouse.history[0].scores[0].points).toBe(10);
-
-        // Tarefas preservadas
-        expect(savedHouse.tasks).toHaveLength(1);
+        expect(fields.history).toHaveLength(1);
+        expect(fields.history![0].periodStart).toBe('2020-01-01T00:00:00.000Z');
+        expect(fields.history![0].scores).toHaveLength(1);
+        expect(fields.history![0].scores[0].memberId).toBe('owner-1');
+        expect(fields.history![0].scores[0].points).toBe(10);
 
         // Estado local também reflete o reset
         const storeHouse = useHouseStore.getState().houses[0];
         expect(storeHouse.logs).toEqual([]);
         expect(storeHouse.history).toHaveLength(1);
+        expect(storeHouse.tasks).toHaveLength(1);
     });
 });
 
@@ -298,7 +309,7 @@ describe('138 — fluxo de tarefa deletada', () => {
 
 describe('139 — múltiplas casas', () => {
     test('trocar de casa ativa não contamina dados das outras', async () => {
-        const house1 = makeHouse({ id: 'house-1', code: 'AAA111' });
+        const house1 = makeHouse({ id: 'house-1', code: 'AAA111', memberIds: ['user-1'], members: [{ id: 'user-1', name: 'Alice' }] });
         const house2 = makeHouse({
             id: 'house-2',
             code: 'BBB222',
@@ -319,7 +330,7 @@ describe('139 — múltiplas casas', () => {
         });
 
         // Operação na casa ativa (house-1)
-        await useHouseStore.getState().logTaskInHouse('task-1', 'owner-1');
+        await useHouseStore.getState().logTaskInHouse('task-1');
 
         const h1 = useHouseStore.getState().houses.find((h) => h.id === 'house-1')!;
         expect(h1.logs).toHaveLength(1);

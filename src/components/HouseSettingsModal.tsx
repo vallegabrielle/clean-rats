@@ -32,13 +32,12 @@ export function HouseSettingsModal({
   openToRequests?: boolean;
 }) {
   const house = useHouseStore(selectActiveHouse);
-  const { renameHouse, updateHousePrize, updateHousePeriod, leaveHouse, seedMockData, approveJoinRequest, rejectJoinRequest } = useHouseStore(
+  const { renameHouse, updateHousePrize, updateHousePeriod, leaveHouse, approveJoinRequest, rejectJoinRequest } = useHouseStore(
     useShallow((s) => ({
       renameHouse: s.renameHouse,
       updateHousePrize: s.updateHousePrize,
       updateHousePeriod: s.updateHousePeriod,
       leaveHouse: s.leaveHouse,
-      seedMockData: s.seedMockData,
       approveJoinRequest: s.approveJoinRequest,
       rejectJoinRequest: s.rejectJoinRequest,
     }))
@@ -109,14 +108,14 @@ export function HouseSettingsModal({
               <Text style={styles.optionDetail}>{house.code}</Text>
             </TouchableOpacity>
 
-            {__DEV__ && (
+            {/* {__DEV__ && (
               <TouchableOpacity
                 style={styles.seedBtn}
                 onPress={async () => { await seedMockData(); onClose(); }}
               >
                 <Text style={styles.seedBtnText}>🧪 Inserir dados mock</Text>
               </TouchableOpacity>
-            )}
+            )} */}
 
             <TouchableOpacity
               style={[styles.leaveBtn, loadingLeave && styles.disabledBtn]}

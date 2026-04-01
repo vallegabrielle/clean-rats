@@ -20,6 +20,8 @@ import MembersScreen from './src/screens/MembersScreen';
 import OnboardingScreen, { ONBOARDING_KEY } from './src/screens/OnboardingScreen';
 import { OnboardingContext } from './src/contexts/OnboardingContext';
 import { ToastProvider } from './src/components/Toast';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { OfflineBanner } from './src/components/OfflineBanner';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -104,6 +106,7 @@ function AppContent() {
           onOnboardingDone={() => setOnboardingDone(true)}
         />
         <ToastProvider />
+        <OfflineBanner />
       </NavigationContainer>
     </OnboardingContext.Provider>
   );
@@ -111,11 +114,13 @@ function AppContent() {
 
 export default function App() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <HouseSync />
-        <AppContent />
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <HouseSync />
+          <AppContent />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }

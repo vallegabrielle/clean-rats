@@ -1,5 +1,7 @@
 import { Task } from '../types';
 
+export const MAX_TASK_POINTS = 1000;
+
 export const COLORS = {
   primary: '#1DB954',
   background: '#121212',

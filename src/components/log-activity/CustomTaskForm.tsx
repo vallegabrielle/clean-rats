@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { COLORS } from '../../constants';
+import { COLORS, MAX_TASK_POINTS } from '../../constants';
 import { styles } from './styles';
 
 type Props = {
@@ -17,7 +17,7 @@ export function CustomTaskForm({ loading, onSubmit, onCancel }: Props) {
 
   function handleSubmit() {
     const pts = parseInt(points, 10);
-    if (!name.trim() || !pts || pts <= 0) return;
+    if (!name.trim() || !pts || pts <= 0 || pts > MAX_TASK_POINTS) return;
     onSubmit(name.trim(), pts);
   }
 

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHouseStore, selectActiveHouse } from '../contexts/HouseContext';
 import { useShallow } from 'zustand/react/shallow';
-import { useAuth } from '../contexts/AuthContext';
+
 import { showToast } from './Toast';
 import { styles } from './log-activity/styles';
 import { TaskList } from './log-activity/TaskList';
@@ -27,13 +27,11 @@ export function LogActivityModal({
       addTaskAndLogInHouse: s.addTaskAndLogInHouse,
     }))
   );
-  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [showCustomForm, setShowCustomForm] = useState(false);
   const { translateY, panHandlers } = useSheetDismiss(handleClose);
 
-  const memberId = house?.members.find((m) => m.id === user?.uid)?.id;
   const currentTaskId = editingLogId
     ? house?.logs.find((l) => l.id === editingLogId)?.taskId
     : undefined;
@@ -50,8 +48,7 @@ export function LogActivityModal({
         await updateLogInHouse(editingLogId, taskId);
         showToast('Atividade atualizada!', 'success');
       } else {
-        if (!memberId) return;
-        await logTaskInHouse(taskId, memberId);
+        await logTaskInHouse(taskId);
         showToast('Atividade registrada!', 'success');
       }
       handleClose();
@@ -61,10 +58,9 @@ export function LogActivityModal({
   }
 
   async function handleCustomSubmit(name: string, points: number) {
-    if (!memberId) return;
     setLoadingId('custom');
     try {
-      await addTaskAndLogInHouse(name, points, memberId);
+      await addTaskAndLogInHouse(name, points);
       showToast('Tarefa criada e registrada!', 'success');
       handleClose();
     } finally {

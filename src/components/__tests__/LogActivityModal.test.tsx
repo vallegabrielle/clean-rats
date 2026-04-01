@@ -135,7 +135,7 @@ test('selecionar tarefa chama logTaskInHouse no modo log', async () => {
 
     await act(async () => { taskBtn!.props.onPress(); });
 
-    expect(mockLogTask).toHaveBeenCalledWith('task-1', 'u1');
+    expect(mockLogTask).toHaveBeenCalledWith('task-1');
     expect(mockUpdateLog).not.toHaveBeenCalled();
 });
 
@@ -210,5 +210,5 @@ test('submit de tarefa personalizada chama addTaskAndLogInHouse', async () => {
 
     await act(async () => { registrarBtn!.props.onPress(); });
 
-    expect(mockAddTaskAndLog).toHaveBeenCalledWith('Passar pano', 5, 'u1');
+    expect(mockAddTaskAndLog).toHaveBeenCalledWith('Passar pano', 5);
 });

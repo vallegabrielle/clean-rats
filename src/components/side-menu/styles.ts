@@ -273,4 +273,14 @@ export const styles = StyleSheet.create({
         fontSize: 15,
         color: COLORS.danger,
     },
+    deleteAccountBtn: {
+        paddingVertical: 10,
+        alignItems: "center",
+    },
+    deleteAccountText: {
+        fontFamily: "NotoSansMono_400Regular",
+        fontSize: 12,
+        color: COLORS.textMuted,
+        textDecorationLine: "underline",
+    },
 });

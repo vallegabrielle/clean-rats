@@ -84,6 +84,21 @@ export function formatDateLabel(iso: string): string {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+/**
+ * Sanitizes a display name coming from external sources (Google Auth, user input).
+ * - Trims and collapses whitespace runs to a single space
+ * - Strips C0/C1 control chars, zero-width chars, BOM, and line/paragraph separators
+ * - Truncates to maxLength (default 50)
+ */
+export function sanitizeName(raw: string, maxLength = 50): string {
+  return raw
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF\u2028\u2029]/g, '')
+    .slice(0, maxLength)
+    .trim();
+}
+
 export function initials(name: string): string {
   return name
     .split(' ')

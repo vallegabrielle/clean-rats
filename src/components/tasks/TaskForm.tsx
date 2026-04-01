@@ -7,10 +7,9 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { COLORS } from '../../constants';
+import { COLORS, MAX_TASK_POINTS } from '../../constants';
 
 const MAX_NAME = 100;
-const MAX_POINTS = 1000;
 
 export type EditingTask = { id: string; name: string; points: string };
 
@@ -35,7 +34,7 @@ export function TaskForm({
     if (!name.trim()) return setError('Informe o nome da tarefa.');
     const pts = parseInt(points, 10);
     if (isNaN(pts) || pts <= 0) return setError('Pontuação mínima: 1.');
-    if (pts > MAX_POINTS) return setError(`Pontuação máxima: ${MAX_POINTS}.`);
+    if (pts > MAX_TASK_POINTS) return setError(`Pontuação máxima: ${MAX_TASK_POINTS}.`);
     setError('');
     onConfirm(name.trim(), pts);
   }

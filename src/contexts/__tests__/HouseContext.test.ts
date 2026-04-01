@@ -13,6 +13,7 @@ import {
     setDoc,
     deleteDoc,
 } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { useHouseStore } from '../HouseContext';
 import { useAuthStore } from '../AuthContext';
 import { saveActiveHouseId } from '../../services/storage';
@@ -26,6 +27,7 @@ jest.mock('firebase/firestore', () => ({
     setDoc: jest.fn(() => Promise.resolve()),
     deleteDoc: jest.fn(() => Promise.resolve()),
     updateDoc: jest.fn(() => Promise.resolve()),
+    runTransaction: jest.fn(() => Promise.resolve()),
     onSnapshot: jest.fn(() => jest.fn()),
     query: jest.fn(() => ({})),
     where: jest.fn(() => ({})),
@@ -35,7 +37,11 @@ jest.mock('firebase/firestore', () => ({
     arrayUnion: jest.fn((value) => value),
 }));
 
-jest.mock('../../services/firebase', () => ({ db: {} }));
+jest.mock('firebase/functions', () => ({
+    httpsCallable: jest.fn(() => jest.fn(() => Promise.resolve({ data: { success: true } }))),
+}));
+
+jest.mock('../../services/firebase', () => ({ db: {}, functions: {} }));
 
 jest.mock('../AuthContext', () => ({
     useAuthStore: {
@@ -128,15 +134,16 @@ beforeEach(() => {
 
 // ─── joinHouseByCode ──────────────────────────────────────────────────────────
 
+// joinHouseByCode é um wrapper fino em torno da Cloud Function.
+// A lógica de negócio (Firestore, rate limit, validações) reside no servidor.
 describe('joinHouseByCode', () => {
-    const house = makeHouse({
-        code: 'XYZ999',
-        memberIds: ['owner-1'],
-        pendingMemberIds: [],
-    });
+    let mockCallable: jest.Mock;
 
     beforeEach(() => {
-        jest.mocked(getDocs).mockResolvedValue(makeQuerySnap([house]) as any);
+        mockCallable = jest.fn(() =>
+            Promise.resolve({ data: { success: true, pending: true } }),
+        );
+        jest.mocked(httpsCallable).mockReturnValue(mockCallable as any);
     });
 
     // 94
@@ -146,30 +153,26 @@ describe('joinHouseByCode', () => {
     });
 
     // 95
-    test('não adiciona usuário a members nem a memberIds', async () => {
-        await useHouseStore.getState().joinHouseByCode('XYZ999');
-        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as [
-            unknown,
-            Record<string, unknown>,
-        ];
-        expect(fields).not.toHaveProperty('members');
-        expect(fields).not.toHaveProperty('memberIds');
+    test('chama Cloud Function com o código normalizado em maiúsculas', async () => {
+        await useHouseStore.getState().joinHouseByCode('xyz999');
+        expect(mockCallable).toHaveBeenCalledWith({ code: 'XYZ999' });
     });
 
     // 96
-    test('adiciona userId a pendingMemberIds da casa', async () => {
-        await useHouseStore.getState().joinHouseByCode('XYZ999');
-        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as [
-            unknown,
-            Record<string, unknown>,
-        ];
-        // arrayUnion está mockado para retornar o valor direto
-        expect(fields.pendingMemberIds).toBe('user-1');
+    test('propaga resposta de erro da Cloud Function', async () => {
+        mockCallable.mockResolvedValue({
+            data: { success: false, error: 'Código não encontrado.' },
+        });
+        const result = await useHouseStore.getState().joinHouseByCode('NOPE00');
+        expect(result.success).toBe(false);
+        expect(result.error).toBeTruthy();
     });
 
     // 97
     test('código inválido retorna erro', async () => {
-        jest.mocked(getDocs).mockResolvedValue(makeQuerySnap([]) as any);
+        mockCallable.mockResolvedValue({
+            data: { success: false, error: 'Código não encontrado.' },
+        });
         const result = await useHouseStore.getState().joinHouseByCode('NOPE00');
         expect(result.success).toBe(false);
         expect(result.error).toBeTruthy();
@@ -177,24 +180,22 @@ describe('joinHouseByCode', () => {
 
     // 98
     test('usuário já membro retorna erro', async () => {
-        jest.mocked(getDocs).mockResolvedValue(
-            makeQuerySnap([makeHouse({ memberIds: ['user-1', 'owner-1'] })]) as any,
-        );
+        mockCallable.mockResolvedValue({
+            data: { success: false, error: 'Você já faz parte desta toca.' },
+        });
         const result = await useHouseStore.getState().joinHouseByCode('ABC123');
         expect(result.success).toBe(false);
         expect(result.error).toBeTruthy();
     });
 
     // 99
-    test('usuário já pendente retorna erro, não duplica request', async () => {
-        jest.mocked(getDocs).mockResolvedValue(
-            makeQuerySnap([
-                makeHouse({ pendingMemberIds: ['user-1'] }),
-            ]) as any,
-        );
+    test('usuário já pendente retorna erro', async () => {
+        mockCallable.mockResolvedValue({
+            data: { success: false, error: 'Você já enviou uma solicitação para esta toca.' },
+        });
         const result = await useHouseStore.getState().joinHouseByCode('ABC123');
         expect(result.success).toBe(false);
-        expect(jest.mocked(updateDoc)).not.toHaveBeenCalled();
+        expect(result.error).toBeTruthy();
     });
 });
 

@@ -13,8 +13,8 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { COLORS } from '../constants';
-import { DEFAULT_TASKS } from '../constants';
+import { COLORS, DEFAULT_TASKS, MAX_TASK_POINTS } from '../constants';
+import { sanitizeName } from '../utils';
 import { createHouse } from '../services/house';
 import { Period, Task } from '../types';
 import { useHouseStore, MAX_HOUSES } from '../contexts/HouseContext';
@@ -28,7 +28,6 @@ type CustomTask = Omit<Task, 'id'>;
 
 const MAX_NAME_LENGTH = 100;
 const MAX_PRIZE_LENGTH = 100;
-const MAX_POINTS = 1000;
 
 export default function CreateHouseScreen() {
   const navigation = useNavigation<Nav>();
@@ -72,8 +71,8 @@ export default function CreateHouseScreen() {
       setCustomFormError('Informe uma pontuação válida (mín. 1).');
       return;
     }
-    if (pts > MAX_POINTS) {
-      setCustomFormError(`Pontuação máxima: ${MAX_POINTS}.`);
+    if (pts > MAX_TASK_POINTS) {
+      setCustomFormError(`Pontuação máxima: ${MAX_TASK_POINTS}.`);
       return;
     }
     setCustomTasks((prev) => [...prev, { name: customName.trim(), points: pts, isDefault: false }]);
@@ -100,7 +99,7 @@ export default function CreateHouseScreen() {
     setLoading(true);
     try {
       const house = {
-        ...createHouse(houseName.trim(), period, user!.uid, user!.displayName ?? 'Você', allTasks),
+        ...createHouse(houseName.trim(), period, user!.uid, sanitizeName(user!.displayName ?? 'Você'), allTasks),
         prize: prize.trim() || undefined,
       };
       await addHouseToList(house);
@@ -240,7 +239,7 @@ export default function CreateHouseScreen() {
               />
               <TextInput
                 style={[styles.input, styles.customInput]}
-                placeholder="Pontuação (máx. 999)"
+                placeholder="Pontuação (máx. 1000)"
                 placeholderTextColor={COLORS.textMuted}
                 value={customPoints}
                 onChangeText={(v) => { setCustomPoints(v); setCustomFormError(''); }}

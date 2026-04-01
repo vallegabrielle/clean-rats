@@ -7,15 +7,16 @@ import {
     setDoc,
     deleteDoc,
     updateDoc,
+    runTransaction,
     onSnapshot,
     query,
     where,
-    getDocs,
     arrayUnion,
     getDoc,
 } from "firebase/firestore";
-import { db } from "../services/firebase";
-import { House, JoinRequest, Member, Period } from "../types";
+import { httpsCallable } from "firebase/functions";
+import { db, functions } from "../services/firebase";
+import { House, Member, Period } from "../types";
 import {
     checkAndResetPeriod,
     computePeriodScores,
@@ -68,14 +69,10 @@ interface HouseState {
         name: string,
         points: number,
     ) => Promise<void>;
-    logTaskInHouse: (taskId: string, memberId: string) => Promise<void>;
+    logTaskInHouse: (taskId: string) => Promise<void>;
     removeLogFromHouse: (logId: string) => Promise<void>;
     updateLogInHouse: (logId: string, taskId: string) => Promise<void>;
-    addTaskAndLogInHouse: (
-        name: string,
-        points: number,
-        memberId: string,
-    ) => Promise<void>;
+    addTaskAndLogInHouse: (name: string, points: number) => Promise<void>;
     renameHouse: (name: string) => Promise<void>;
     updateHousePrize: (prize: string) => Promise<void>;
     updateHousePeriod: (period: Period) => Promise<void>;
@@ -93,21 +90,40 @@ export const useHouseStore = create<HouseState>()((set, get) => {
     }
 
     async function updateHouseFields(id: string, fields: Partial<House>) {
+        const prev = get().houses;
         set((s) => ({
             houses: s.houses.map((h) =>
                 h.id === id ? { ...h, ...fields } : h,
             ),
         }));
-        await updateDoc(
-            doc(db, "houses", id),
-            fields as Record<string, unknown>,
-        );
+        try {
+            await updateDoc(
+                doc(db, "houses", id),
+                fields as Record<string, unknown>,
+            );
+        } catch (e: any) {
+            set({ houses: prev });
+            const offline =
+                e?.code === "unavailable" ||
+                e?.message?.toLowerCase().includes("offline") ||
+                e?.message?.toLowerCase().includes("network");
+            showToast(
+                offline
+                    ? "Sem conexão. A ação não foi salva."
+                    : `Erro ao salvar. Tente novamente.`,
+            );
+            throw e;
+        }
     }
 
-    function withActive(fn: (house: House) => Partial<House>): Promise<void> {
+    async function withActive(fn: (house: House) => Partial<House>): Promise<void> {
         const h = getActive();
-        if (!h) return Promise.resolve();
-        return updateHouseFields(h.id, fn(h));
+        if (!h) return;
+        try {
+            await updateHouseFields(h.id, fn(h));
+        } catch {
+            // toast + rollback already handled in updateHouseFields
+        }
     }
 
     async function redirectActiveAway(removedId: string) {
@@ -148,10 +164,23 @@ export const useHouseStore = create<HouseState>()((set, get) => {
                             const house = d.data() as House;
                             const result = checkAndResetPeriod(house);
                             if (result.type === "reset") {
-                                await setDoc(
-                                    doc(db, "houses", house.id),
-                                    result.house,
-                                );
+                                // Use a transaction to re-read the document and
+                                // only write if the period is still expired.
+                                // This prevents multiple clients from racing to
+                                // reset the same period simultaneously.
+                                const ref = doc(db, "houses", house.id);
+                                await runTransaction(db, async (tx) => {
+                                    const snap = await tx.get(ref);
+                                    if (!snap.exists()) return;
+                                    const fresh = snap.data() as House;
+                                    const freshResult = checkAndResetPeriod(fresh);
+                                    if (freshResult.type !== "reset") return;
+                                    tx.update(ref, {
+                                        logs: freshResult.house.logs,
+                                        periodStart: freshResult.house.periodStart,
+                                        history: freshResult.house.history,
+                                    });
+                                });
                                 loaded.push(result.house);
                             } else if (result.type === "init") {
                                 loaded.push(result.house);
@@ -253,13 +282,23 @@ export const useHouseStore = create<HouseState>()((set, get) => {
         },
 
         addHouseToList: async (house) => {
-            await setDoc(doc(db, "houses", house.id), house);
+            try {
+                await setDoc(doc(db, "houses", house.id), house);
+            } catch (e: any) {
+                const offline = e?.code === "unavailable" || e?.message?.toLowerCase().includes("offline");
+                throw new Error(offline ? "Sem conexão. Não foi possível criar a toca." : "Erro ao criar a toca. Tente novamente.");
+            }
             set({ activeHouseId: house.id });
             await saveActiveHouseId(house.id);
         },
 
         removeHouseFromList: async (id) => {
-            await deleteDoc(doc(db, "houses", id));
+            try {
+                await deleteDoc(doc(db, "houses", id));
+            } catch (e: any) {
+                const offline = e?.code === "unavailable" || e?.message?.toLowerCase().includes("offline");
+                throw new Error(offline ? "Sem conexão. Não foi possível remover a toca." : "Erro ao remover a toca. Tente novamente.");
+            }
             await redirectActiveAway(id);
         },
 
@@ -268,53 +307,23 @@ export const useHouseStore = create<HouseState>()((set, get) => {
             if (!user) return { success: false, error: "Não autenticado." };
 
             try {
-                const normalizedCode = code.toUpperCase().trim();
-                const q = query(
-                    collection(db, "houses"),
-                    where("code", "==", normalizedCode),
-                );
-                const snapshot = await getDocs(q);
-
-                if (snapshot.empty)
-                    return { success: false, error: "Código não encontrado." };
-
-                const house = snapshot.docs[0].data() as House;
-
-                if (house.memberIds?.includes(user.uid)) {
-                    return {
-                        success: false,
-                        error: "Você já faz parte desta toca.",
-                    };
-                }
-                if (house.pendingMemberIds?.includes(user.uid)) {
-                    return {
-                        success: false,
-                        error: "Você já enviou uma solicitação para esta toca.",
-                    };
-                }
-                if (get().houses.length >= MAX_HOUSES) {
-                    return {
-                        success: false,
-                        error: `Limite de ${MAX_HOUSES} tocas atingido.`,
-                    };
-                }
-
-                const request: JoinRequest = {
-                    userId: user.uid,
-                    name: user.displayName ?? "Usuário",
-                    requestedAt: new Date().toISOString(),
-                };
-                await updateDoc(doc(db, "houses", house.id), {
-                    pendingRequests: arrayUnion(request),
-                    pendingMemberIds: arrayUnion(user.uid),
-                });
-
-                return { success: true, pending: true };
-            } catch (e) {
+                const fn = httpsCallable<
+                    { code: string },
+                    { success: boolean; pending?: boolean; error?: string }
+                >(functions, "joinHouseByCode");
+                const result = await fn({ code: code.trim().toUpperCase() });
+                return result.data;
+            } catch (e: any) {
                 console.error("[joinHouseByCode]", e);
+                const offline =
+                    e?.code === "unavailable" ||
+                    e?.message?.toLowerCase().includes("offline") ||
+                    e?.message?.toLowerCase().includes("network");
                 return {
                     success: false,
-                    error: "Erro ao entrar na toca. Tente novamente.",
+                    error: offline
+                        ? "Sem conexão. Não foi possível entrar na toca."
+                        : "Erro ao entrar na toca. Tente novamente.",
                 };
             }
         },
@@ -383,8 +392,11 @@ export const useHouseStore = create<HouseState>()((set, get) => {
                 tasks: updateTask(h, taskId, name, points).tasks,
             })),
 
-        logTaskInHouse: (taskId, memberId) =>
-            withActive((h) => ({ logs: logTask(h, taskId, memberId).logs })),
+        logTaskInHouse: (taskId) => {
+            const uid = useAuthStore.getState().user?.uid;
+            if (!uid) return Promise.resolve();
+            return withActive((h) => ({ logs: logTask(h, taskId, uid).logs }));
+        },
 
         removeLogFromHouse: (logId) =>
             withActive((h) => ({ logs: removeLog(h, logId).logs })),
@@ -425,20 +437,15 @@ export const useHouseStore = create<HouseState>()((set, get) => {
                 };
             }),
 
-        addTaskAndLogInHouse: (name, points, memberId) =>
-            withActive((h) => {
-                const { house: houseWithTask, task: newTask } = addTask(
-                    h,
-                    name,
-                    points,
-                );
-                const houseWithLog = logTask(
-                    houseWithTask,
-                    newTask.id,
-                    memberId,
-                );
+        addTaskAndLogInHouse: (name, points) => {
+            const uid = useAuthStore.getState().user?.uid;
+            if (!uid) return Promise.resolve();
+            return withActive((h) => {
+                const { house: houseWithTask, task: newTask } = addTask(h, name, points);
+                const houseWithLog = logTask(houseWithTask, newTask.id, uid);
                 return { tasks: houseWithLog.tasks, logs: houseWithLog.logs };
-            }),
+            });
+        },
 
         leaveHouse: async (id) => {
             const user = useAuthStore.getState().user;
@@ -460,9 +467,10 @@ export const useHouseStore = create<HouseState>()((set, get) => {
                         members: data.members.filter((m) => m.id !== user.uid),
                     });
                 }
-            } catch (e) {
+            } catch (e: any) {
                 console.error("[leaveHouse] error:", e);
-                throw e;
+                const offline = e?.code === "unavailable" || e?.message?.toLowerCase().includes("offline");
+                throw new Error(offline ? "Sem conexão. Não foi possível sair da toca." : "Erro ao sair da toca. Tente novamente.");
             }
 
             await redirectActiveAway(id);

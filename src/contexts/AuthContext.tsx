@@ -6,8 +6,10 @@ import {
     GoogleAuthProvider,
     signInWithCredential,
     updateProfile,
+    deleteUser,
 } from "firebase/auth";
 import { auth } from "../services/firebase";
+import { sanitizeName } from "../utils";
 
 interface AuthState {
     user: User | null;
@@ -15,6 +17,7 @@ interface AuthState {
     loginWithGoogle: (idToken: string) => Promise<void>;
     logout: () => Promise<void>;
     updateDisplayName: (name: string) => Promise<void>;
+    deleteAccount: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()((set, get) => ({
@@ -30,13 +33,20 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         await signOut(auth);
     },
 
+    deleteAccount: async () => {
+        const { user } = get();
+        if (!user) return;
+        await deleteUser(user);
+    },
+
     updateDisplayName: async (name) => {
         const { user } = get();
         if (!user) return;
-        await updateProfile(user, { displayName: name.trim() });
+        const clean = sanitizeName(name);
+        await updateProfile(user, { displayName: clean });
         set((s) => ({
             user: s.user
-                ? ({ ...s.user, displayName: name.trim() } as User)
+                ? ({ ...s.user, displayName: clean } as User)
                 : null,
         }));
     },
@@ -47,7 +57,7 @@ onAuthStateChanged(auth, (u) =>
 );
 
 export function useAuth() {
-    const { user, loading, loginWithGoogle, logout, updateDisplayName } =
+    const { user, loading, loginWithGoogle, logout, updateDisplayName, deleteAccount } =
         useAuthStore();
     return {
         user,
@@ -56,5 +66,6 @@ export function useAuth() {
         loginWithGoogle,
         logout,
         updateDisplayName,
+        deleteAccount,
     };
 }

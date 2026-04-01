@@ -87,11 +87,11 @@ export default function JoinHouseScreen() {
           <Text style={styles.label}>Código da toca</Text>
           <TextInput
             style={styles.input}
-            placeholder="Ex: AB12CD"
+            placeholder="Ex: AB12CD34"
             placeholderTextColor={COLORS.textMuted}
             value={code}
             onChangeText={(v) => { setCode(v.toUpperCase()); setError(''); }}
-            maxLength={6}
+            maxLength={8}
             autoCapitalize="characters"
             autoFocus
           />
