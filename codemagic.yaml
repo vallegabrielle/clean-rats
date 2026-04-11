@@ -6,6 +6,8 @@ workflows:
     instance_type: mac_mini_m2
 
     environment:
+      integrations:
+        app_store_connect: Codemagic 2
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.gdvll.cleanrats
@@ -62,6 +64,8 @@ workflows:
     instance_type: mac_mini_m2
 
     environment:
+      integrations:
+        app_store_connect: Codemagic 2
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.gdvll.cleanrats
