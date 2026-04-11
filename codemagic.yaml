@@ -9,9 +9,6 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.gdvll.cleanrats
-        api_key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        api_issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        api_private_key: $APP_STORE_CONNECT_PRIVATE_KEY
       groups:
         - app_env
         - app
@@ -68,9 +65,6 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.gdvll.cleanrats
-        api_key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        api_issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        api_private_key: $APP_STORE_CONNECT_PRIVATE_KEY
       groups:
         - app_env
         - app
