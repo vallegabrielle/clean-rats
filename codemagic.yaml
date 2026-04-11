@@ -9,11 +9,6 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.gdvll.cleanrats
-        # Aponta explicitamente para a chave "Codemagic 2" (Key ID YFMML26QDQ)
-        # cadastrada em Teams > Integrations > Developer Portal.
-        # Sem esse campo, o Codemagic usa a primeira chave da lista (ordem da UI),
-        # que pode não ter as permissões certas ou estar vinculada ao team errado.
-        api_key_id: YFMML26QDQ
       groups:
         - app_env
         - app
@@ -70,8 +65,6 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.gdvll.cleanrats
-        # Mesma chave do workflow de preview — garante consistência
-        api_key_id: YFMML26QDQ
       groups:
         - app_env
         - app
