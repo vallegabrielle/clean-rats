@@ -38,8 +38,6 @@ workflows:
 
       - name: Install CocoaPods
         script: cd ios && pod install
-        cache_paths:
-          - ios/Pods
 
       - name: Build IPA
         script: |
@@ -96,8 +94,6 @@ workflows:
 
       - name: Install CocoaPods
         script: cd ios && pod install
-        cache_paths:
-          - ios/Pods
 
       - name: Build IPA
         script: |
