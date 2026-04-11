@@ -10,8 +10,8 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.gdvll.cleanrats
       groups:
-        - app_env            # Firebase + AdMob env vars
-        - app_store_connect  # API key para submit
+        - app_env
+        - app
       node: v20
 
     cache:
@@ -67,7 +67,7 @@ workflows:
         bundle_identifier: com.gdvll.cleanrats
       groups:
         - app_env
-        - app_store_connect
+        - app
       node: v20
 
     cache:
