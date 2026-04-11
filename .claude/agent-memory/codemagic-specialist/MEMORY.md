@@ -1,0 +1,1 @@
+- [CleanRats — Configuração Codemagic](project_cleanrats.md) — bundle ID, chaves Developer Portal, decisão de api_key_id YFMML26QDQ para signing iOS
