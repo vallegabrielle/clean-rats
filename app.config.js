@@ -1,6 +1,6 @@
 /** @type {import('@expo/config').ExpoConfig} */
 module.exports = {
-    name: 'clean-rats',
+    name: 'Clean Rats',
     slug: 'clean-rats',
     scheme: 'cleanrats',
     version: '1.0.0',
@@ -17,6 +17,8 @@ module.exports = {
         bundleIdentifier: 'com.gdvll.cleanrats',
         infoPlist: {
             ITSAppUsesNonExemptEncryption: false,
+            NSUserTrackingUsageDescription:
+                'Este identificador é usado para mostrar anúncios relevantes para você.',
         },
     },
     android: {
@@ -28,7 +30,7 @@ module.exports = {
         },
         predictiveBackGestureEnabled: false,
         package: 'com.gdvll.cleanrats',
-        googleServicesFile: './google-services.json',
+        googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
     },
     web: {
         favicon: './assets/cleaner_rat_red_bg.png',
@@ -36,6 +38,14 @@ module.exports = {
     plugins: [
         'expo-font',
         'expo-web-browser',
+        'expo-apple-authentication',
+        [
+            'react-native-google-mobile-ads',
+            {
+                androidAppId: process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID ?? 'ca-app-pub-3940256099942544~3347511713',
+                iosAppId: process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID,
+            },
+        ],
     ],
     extra: {
         eas: {

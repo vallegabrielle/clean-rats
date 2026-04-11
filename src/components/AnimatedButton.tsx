@@ -8,6 +8,7 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 interface Props {
   onPress: () => void;
@@ -31,6 +32,7 @@ export function AnimatedButton({ onPress, disabled, loading, label, style, textS
   }, [disabled]);
 
   function handlePressIn() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Animated.spring(scale, {
       toValue: 0.96,
       useNativeDriver: true,

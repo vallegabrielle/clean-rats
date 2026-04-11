@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { COLORS } from '../../constants';
 import { Period } from '../../types';
 import { styles } from './styles';
@@ -18,22 +18,37 @@ const PERIOD_LABELS: Record<Period, string> = {
 
 type Props = {
   currentPeriod: Period;
+  logCount: number;
   onUpdate: (period: Period) => Promise<void>;
 };
 
-export function PeriodOption({ currentPeriod, onUpdate }: Props) {
+export function PeriodOption({ currentPeriod, logCount, onUpdate }: Props) {
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  async function select(period: Period) {
+  async function confirmAndSelect(period: Period) {
     if (period === currentPeriod) { setEditing(false); return; }
-    setLoading(true);
-    try {
-      await onUpdate(period);
-    } finally {
-      setLoading(false);
-    }
-    setEditing(false);
+
+    const message = logCount > 0
+      ? `O período atual será encerrado e ${logCount} registro${logCount === 1 ? '' : 's'} será${logCount === 1 ? '' : 'ão'} arquivado${logCount === 1 ? '' : 's'} no histórico.\n\nDeseja continuar?`
+      : 'O período atual será reiniciado. Deseja continuar?';
+
+    Alert.alert('Alterar período', message, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Alterar',
+        style: 'destructive',
+        onPress: async () => {
+          setLoading(true);
+          try {
+            await onUpdate(period);
+          } finally {
+            setLoading(false);
+          }
+          setEditing(false);
+        },
+      },
+    ]);
   }
 
   if (!editing) {
@@ -56,7 +71,7 @@ export function PeriodOption({ currentPeriod, onUpdate }: Props) {
               <TouchableOpacity
                 key={opt.value}
                 style={[styles.periodOption, currentPeriod === opt.value && styles.periodOptionActive]}
-                onPress={() => select(opt.value)}
+                onPress={() => confirmAndSelect(opt.value)}
               >
                 <Text style={[styles.periodOptionText, currentPeriod === opt.value && styles.periodOptionTextActive]}>
                   {opt.label}

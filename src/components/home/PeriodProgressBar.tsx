@@ -45,6 +45,9 @@ export function PeriodProgressBar({ house }: { house: House }) {
       <View style={styles.periodTrack}>
         <View style={[styles.periodFill, { width: `${Math.round(progress * 100)}%` }]} />
       </View>
+      {!!house.prize && (
+        <Text style={styles.prize}>🏆 {house.prize}</Text>
+      )}
     </View>
   );
 }
@@ -85,5 +88,10 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: COLORS.red,
     borderRadius: 3,
+  },
+  prize: {
+    fontFamily: 'NotoSansMono_400Regular',
+    fontSize: 12,
+    color: COLORS.textMuted,
   },
 });

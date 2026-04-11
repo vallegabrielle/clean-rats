@@ -1,5 +1,6 @@
-import { useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Swipeable } from 'react-native-gesture-handler';
 import { COLORS } from '../../constants';
 import { Task } from '../../types';
@@ -10,13 +11,27 @@ export function TaskCard({
   onEdit,
   onDelete,
   onOpen,
+  isFirst,
 }: {
   task: Task;
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
   onOpen: (ref: Swipeable) => void;
+  isFirst?: boolean;
 }) {
   const swipeRef = useRef<Swipeable>(null);
+  const hintAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!isFirst) return;
+    const timer = setTimeout(() => {
+      Animated.sequence([
+        Animated.timing(hintAnim, { toValue: -18, duration: 250, useNativeDriver: true }),
+        Animated.timing(hintAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start();
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []);
 
   function renderRightActions() {
     return (
@@ -24,7 +39,7 @@ export function TaskCard({
         <TouchableOpacity style={swipeStyles.swipeEdit} onPress={() => onEdit(task)}>
           <Text style={swipeStyles.swipeEditText}>✎</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={swipeStyles.swipeDelete} onPress={() => onDelete(task)}>
+        <TouchableOpacity style={swipeStyles.swipeDelete} onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); onDelete(task); }}>
           <Text style={swipeStyles.swipeDeleteText}>✕</Text>
         </TouchableOpacity>
       </View>
@@ -32,6 +47,7 @@ export function TaskCard({
   }
 
   return (
+    <Animated.View style={{ transform: [{ translateX: hintAnim }] }}>
     <Swipeable
       ref={swipeRef}
       renderRightActions={renderRightActions}
@@ -50,6 +66,7 @@ export function TaskCard({
         </View>
       </View>
     </Swipeable>
+    </Animated.View>
   );
 }
 

@@ -9,7 +9,7 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "store"
     },
     "production": {
       "autoIncrement": true,
@@ -24,11 +24,13 @@
         "EXPO_PUBLIC_ADMOB_ANDROID_APP_ID": "$EXPO_PUBLIC_ADMOB_ANDROID_APP_ID",
         "EXPO_PUBLIC_ADMOB_IOS_APP_ID": "$EXPO_PUBLIC_ADMOB_IOS_APP_ID",
         "EXPO_PUBLIC_ADMOB_BANNER_ANDROID_ID": "$EXPO_PUBLIC_ADMOB_BANNER_ANDROID_ID",
-        "EXPO_PUBLIC_ADMOB_BANNER_IOS_ID": "$EXPO_PUBLIC_ADMOB_BANNER_IOS_ID"
+        "EXPO_PUBLIC_ADMOB_BANNER_IOS_ID": "$EXPO_PUBLIC_ADMOB_BANNER_IOS_ID",
+        "EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS_ID": "$EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS_ID"
       }
     }
   },
   "submit": {
+    "preview": {},
     "production": {}
   }
 }

@@ -32,6 +32,17 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env.local
+.env
+
+# Firebase native config (use EAS Secrets for CI builds)
+google-services.json
+GoogleService-Info.plist
+
+# EAS / build artifacts
+*.ipa
+*.apk
+*.aab
 
 # typescript
 *.tsbuildinfo

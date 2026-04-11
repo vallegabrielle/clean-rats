@@ -1,8 +1,9 @@
 import 'react-native-gesture-handler';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFonts, Bungee_400Regular } from '@expo-google-fonts/bungee';
 import { NotoSansMono_400Regular } from '@expo-google-fonts/noto-sans-mono';
-import { View, ActivityIndicator } from 'react-native';
+import { Platform, View, ActivityIndicator } from 'react-native';
+import MobileAds, { requestTrackingTransparencyPermission } from 'react-native-google-mobile-ads';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -18,6 +19,7 @@ import JoinHouseScreen from './src/screens/JoinHouseScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import MembersScreen from './src/screens/MembersScreen';
 import OnboardingScreen, { ONBOARDING_KEY } from './src/screens/OnboardingScreen';
+import SetDisplayNameScreen from './src/screens/SetDisplayNameScreen';
 import { OnboardingContext } from './src/contexts/OnboardingContext';
 import { ToastProvider } from './src/components/Toast';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
@@ -25,6 +27,7 @@ import { OfflineBanner } from './src/components/OfflineBanner';
 
 export type RootStackParamList = {
   Login: undefined;
+  SetDisplayName: undefined;
   Home: undefined;
   CreateHouse: undefined;
   JoinHouse: undefined;
@@ -41,7 +44,8 @@ type AppNavigatorProps = {
 };
 
 function AppNavigator({ onboardingDone, onOnboardingDone }: AppNavigatorProps) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const needsDisplayName = isAuthenticated && !user?.displayName;
 
   if (!onboardingDone) {
     return <OnboardingScreen onDone={onOnboardingDone} />;
@@ -57,6 +61,8 @@ function AppNavigator({ onboardingDone, onOnboardingDone }: AppNavigatorProps) {
     >
       {!isAuthenticated ? (
         <Stack.Screen name="Login" component={LoginScreen} />
+      ) : needsDisplayName ? (
+        <Stack.Screen name="SetDisplayName" component={SetDisplayNameScreen} />
       ) : (
         <>
           <Stack.Screen name="Home" component={HomeScreen} />
@@ -72,18 +78,39 @@ function AppNavigator({ onboardingDone, onOnboardingDone }: AppNavigatorProps) {
 }
 
 function AppContent() {
-  const { loading: authLoading } = useAuth();
+  const { loading: authLoading, isAuthenticated } = useAuth();
   const [fontsLoaded] = useFonts({
     Bungee_400Regular,
     NotoSansMono_400Regular,
   });
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+  const adsInitialized = useRef(false);
 
   useEffect(() => {
     AsyncStorage.getItem(ONBOARDING_KEY).then((val) => {
       setOnboardingDone(val === 'true');
     });
   }, []);
+
+  // Request ATT and initialize MobileAds once auth has resolved and the user
+  // is authenticated. We gate on isAuthenticated so the prompt doesn't fire
+  // on the cold-start loading screen or on the login screen.
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || adsInitialized.current) return;
+    adsInitialized.current = true;
+
+    async function initAds() {
+      if (Platform.OS === 'ios') {
+        // ATT prompt — must be shown before initializing the SDK on iOS 14+.
+        // The result doesn't block SDK init; AdMob will serve limited ads if
+        // the user denies.
+        await requestTrackingTransparencyPermission();
+      }
+      await MobileAds().initialize();
+    }
+
+    initAds();
+  }, [authLoading, isAuthenticated]);
 
   if (!fontsLoaded || authLoading || onboardingDone === null) {
     return (

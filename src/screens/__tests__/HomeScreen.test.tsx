@@ -10,7 +10,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { computeScores } from '../../services/period';
 import { HouseSettingsModal } from '../../components/HouseSettingsModal';
 import { useNavigation } from '@react-navigation/native';
-import { House } from '../../types';
+import { House, TaskLog } from '../../types';
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -115,7 +115,6 @@ function makeHouse(overrides: Partial<House> = {}): House {
         memberIds: ['user-1'],
         members: [{ id: 'user-1', name: 'Alice' }],
         tasks: [{ id: 'task-1', name: 'Lavar louça', points: 10, isDefault: true }],
-        logs: [],
         createdAt: '2024-01-01T00:00:00.000Z',
         periodStart: new Date(new Date().setDate(new Date().getDate() - 2)).toISOString(),
         history: [],
@@ -125,11 +124,12 @@ function makeHouse(overrides: Partial<House> = {}): House {
     };
 }
 
-function setupStore(house: House | null) {
+function setupStore(house: House | null, logs: TaskLog[] = []) {
     const state = {
         houses: house ? [house] : [],
         activeHouseId: house ? house.id : null,
         loadingHouses: false,
+        logs,
         removeLogFromHouse: jest.fn(),
     };
     jest.mocked(useHouseStore).mockImplementation((selector: any) =>
@@ -151,8 +151,8 @@ beforeEach(() => {
     } as any);
 });
 
-function render(house: House | null = makeHouse()): ReactTestRenderer {
-    setupStore(house);
+function render(house: House | null = makeHouse(), logs: TaskLog[] = []): ReactTestRenderer {
+    setupStore(house, logs);
     let renderer!: ReactTestRenderer;
     act(() => {
         renderer = create(React.createElement(HomeScreen));
@@ -234,19 +234,21 @@ test('progress bar do período é renderizada', () => {
 
 // 118
 test('logs de hoje aparecem com label "Hoje"', () => {
-    const house = makeHouse({
-        logs: [{ id: 'log-1', taskId: 'task-1', memberId: 'user-1', completedAt: TODAY }],
-    });
-    const tree = render(house).toJSON();
+    const house = makeHouse();
+    const logs: TaskLog[] = [
+        { id: 'log-1', taskId: 'task-1', memberId: 'user-1', completedAt: TODAY },
+    ];
+    const tree = render(house, logs).toJSON();
     expect(hasText(tree, 'Hoje')).toBe(true);
 });
 
 // 119
 test('logs de ontem aparecem com label "Ontem"', () => {
-    const house = makeHouse({
-        logs: [{ id: 'log-1', taskId: 'task-1', memberId: 'user-1', completedAt: YESTERDAY }],
-    });
-    const tree = render(house).toJSON();
+    const house = makeHouse();
+    const logs: TaskLog[] = [
+        { id: 'log-1', taskId: 'task-1', memberId: 'user-1', completedAt: YESTERDAY },
+    ];
+    const tree = render(house, logs).toJSON();
     expect(hasText(tree, 'Ontem')).toBe(true);
 });
 
@@ -254,15 +256,16 @@ test('logs de ontem aparecem com label "Ontem"', () => {
 
 // 120
 test('atividade própria exibe botões de editar (✎) e deletar (✕) no swipe', () => {
-    const house = makeHouse({
-        logs: [{ id: 'log-1', taskId: 'task-1', memberId: 'user-1', completedAt: TODAY }],
-    });
+    const house = makeHouse();
+    const logs: TaskLog[] = [
+        { id: 'log-1', taskId: 'task-1', memberId: 'user-1', completedAt: TODAY },
+    ];
     // Usuário logado = user-1, log.memberId = user-1 → isOwner = true
     jest.mocked(useAuth).mockReturnValue({
         user: { uid: 'user-1', displayName: 'Alice' },
     } as any);
 
-    const tree = render(house).toJSON();
+    const tree = render(house, logs).toJSON();
     // O mock do Swipeable chama renderRightActions() inline
     // Se isOwner=true, os botões ✎ e ✕ ficam visíveis na árvore
     expect(hasText(tree, '✎')).toBe(true);

@@ -13,14 +13,18 @@ import {
     where,
     arrayUnion,
     getDoc,
+    getDocs,
+    limit,
+    writeBatch,
+    orderBy,
 } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-import { db, functions } from "../services/firebase";
-import { House, Member, Period } from "../types";
+import { db } from "../services/firebase";
+import { House, Member, MemberScore, Period, TaskLog } from "../types";
 import {
     checkAndResetPeriod,
-    computePeriodScores,
+    computeScores,
     getCurrentPeriodStart,
+    buildPeriodRecord,
 } from "../services/period";
 import {
     loadActiveHouseId,
@@ -31,12 +35,11 @@ import {
     addTask,
     removeTask,
     updateTask,
-    logTask,
-    removeLog,
-    updateLog,
+    generateId,
 } from "../services/house";
 import { useAuthStore } from "./AuthContext";
 import { showToast } from "../components/Toast";
+import { sanitizeName } from "../utils";
 
 export const MAX_HOUSES = 5;
 
@@ -45,7 +48,12 @@ interface HouseState {
     pendingHouses: House[];
     activeHouseId: string | null;
     loadingHouses: boolean;
+    logs: TaskLog[];
+    logsLoading: boolean;
+    lastResetInfo: { houseId: string; scores: MemberScore[]; periodEnd: string; prize?: string } | null;
+    clearResetInfo: () => void;
     subscribe: (userId: string) => () => void;
+    subscribeToLogs: (houseId: string) => () => void;
     reset: () => void;
     setActiveHouseId: (id: string) => Promise<void>;
     addHouseToList: (house: House) => Promise<void>;
@@ -69,14 +77,15 @@ interface HouseState {
         name: string,
         points: number,
     ) => Promise<void>;
-    logTaskInHouse: (taskId: string) => Promise<void>;
+    logTaskInHouse: (taskId: string, completedAt?: string) => Promise<void>;
     removeLogFromHouse: (logId: string) => Promise<void>;
     updateLogInHouse: (logId: string, taskId: string) => Promise<void>;
-    addTaskAndLogInHouse: (name: string, points: number) => Promise<void>;
+    addTaskAndLogInHouse: (name: string, points: number, completedAt?: string) => Promise<void>;
     renameHouse: (name: string) => Promise<void>;
     updateHousePrize: (prize: string) => Promise<void>;
     updateHousePeriod: (period: Period) => Promise<void>;
     leaveHouse: (id: string) => Promise<void>;
+    removeMemberFromHouse: (houseId: string, memberId: string) => Promise<void>;
     renameCurrentUserInHouses: (name: string) => Promise<void>;
     seedMockData: () => Promise<void>;
 }
@@ -141,6 +150,27 @@ export const useHouseStore = create<HouseState>()((set, get) => {
         pendingHouses: [],
         activeHouseId: null,
         loadingHouses: true,
+        logs: [],
+        logsLoading: false,
+        lastResetInfo: null,
+
+        clearResetInfo: () => set({ lastResetInfo: null }),
+
+        subscribeToLogs: (houseId) => {
+            set({ logsLoading: true, logs: [] });
+            const logsQuery = query(
+                collection(db, 'houses', houseId, 'logs'),
+                orderBy('completedAt', 'desc'),
+            );
+            return onSnapshot(
+                logsQuery,
+                (snap) => {
+                    const logs: TaskLog[] = snap.docs.map((d) => d.data() as TaskLog);
+                    set({ logs, logsLoading: false });
+                },
+                () => set({ logsLoading: false }),
+            );
+        },
 
         subscribe: (userId) => {
             let firstLoad = true;
@@ -164,24 +194,65 @@ export const useHouseStore = create<HouseState>()((set, get) => {
                             const house = d.data() as House;
                             const result = checkAndResetPeriod(house);
                             if (result.type === "reset") {
-                                // Use a transaction to re-read the document and
-                                // only write if the period is still expired.
-                                // This prevents multiple clients from racing to
-                                // reset the same period simultaneously.
                                 const ref = doc(db, "houses", house.id);
+
+                                // Query all current logs from subcollection before the transaction
+                                const logsSnap = await getDocs(collection(db, "houses", house.id, "logs"));
+                                const allLogs: TaskLog[] = logsSnap.docs.map((d) => d.data() as TaskLog);
+                                const previousScores = computeScores(house, allLogs);
+
+                                type CommittedFields = { periodStart: string; history: typeof house.history };
+                                let committedFields: CommittedFields | null = null;
+                                let freshHouseFromTx: House | null = null;
+
                                 await runTransaction(db, async (tx) => {
                                     const snap = await tx.get(ref);
                                     if (!snap.exists()) return;
                                     const fresh = snap.data() as House;
+                                    freshHouseFromTx = fresh;
                                     const freshResult = checkAndResetPeriod(fresh);
                                     if (freshResult.type !== "reset") return;
+
+                                    const alreadyArchived = (fresh.history ?? []).some(
+                                        (r) => r.periodStart === fresh.periodStart,
+                                    );
+                                    const newHistory = alreadyArchived
+                                        ? (fresh.history ?? [])
+                                        : [...(fresh.history ?? []), buildPeriodRecord(fresh, allLogs)];
+
                                     tx.update(ref, {
-                                        logs: freshResult.house.logs,
-                                        periodStart: freshResult.house.periodStart,
-                                        history: freshResult.house.history,
+                                        periodStart: freshResult.newPeriodStart,
+                                        history: newHistory,
                                     });
+                                    committedFields = {
+                                        periodStart: freshResult.newPeriodStart,
+                                        history: newHistory,
+                                    };
                                 });
-                                loaded.push(result.house);
+
+                                if (committedFields !== null) {
+                                    // This client committed — delete all logs from subcollection
+                                    if (logsSnap.docs.length > 0) {
+                                        const batch = writeBatch(db);
+                                        for (const d of logsSnap.docs) {
+                                            batch.delete(d.ref);
+                                        }
+                                        await batch.commit();
+                                    }
+                                    set({
+                                        logs: [],
+                                        lastResetInfo: {
+                                            houseId: house.id,
+                                            scores: previousScores,
+                                            periodEnd: new Date().toISOString(),
+                                            ...(house.prize ? { prize: house.prize } : {}),
+                                        },
+                                    });
+                                    loaded.push({ ...house, ...(committedFields as CommittedFields) });
+                                } else {
+                                    // Another client already reset — use the fresh doc from the transaction re-read
+                                    loaded.push(freshHouseFromTx ?? { ...house, periodStart: result.newPeriodStart });
+                                }
                             } else if (result.type === "init") {
                                 loaded.push(result.house);
                             } else {
@@ -274,6 +345,8 @@ export const useHouseStore = create<HouseState>()((set, get) => {
                 pendingHouses: [],
                 activeHouseId: null,
                 loadingHouses: false,
+                logs: [],
+                logsLoading: false,
             }),
 
         setActiveHouseId: async (id) => {
@@ -306,13 +379,45 @@ export const useHouseStore = create<HouseState>()((set, get) => {
             const user = useAuthStore.getState().user;
             if (!user) return { success: false, error: "Não autenticado." };
 
+            const normalizedCode = code.trim().toUpperCase();
+
             try {
-                const fn = httpsCallable<
-                    { code: string },
-                    { success: boolean; pending?: boolean; error?: string }
-                >(functions, "joinHouseByCode");
-                const result = await fn({ code: code.trim().toUpperCase() });
-                return result.data;
+                const snapshot = await getDocs(
+                    query(
+                        collection(db, "houses"),
+                        where("code", "==", normalizedCode),
+                        limit(1),
+                    ),
+                );
+
+                if (snapshot.empty) {
+                    return { success: false, error: "Código não encontrado." };
+                }
+
+                const houseDoc = snapshot.docs[0];
+                const house = houseDoc.data() as House;
+
+                if (house.memberIds.includes(user.uid)) {
+                    return { success: false, error: "Você já faz parte desta toca." };
+                }
+                if ((house.pendingMemberIds ?? []).includes(user.uid)) {
+                    return { success: false, error: "Você já enviou uma solicitação para esta toca." };
+                }
+                const { houses } = get();
+                if (houses.length >= MAX_HOUSES) {
+                    return { success: false, error: `Limite de ${MAX_HOUSES} tocas atingido.` };
+                }
+
+                await updateDoc(houseDoc.ref, {
+                    pendingRequests: arrayUnion({
+                        userId: user.uid,
+                        name: sanitizeName(user.displayName ?? "Usuário"),
+                        requestedAt: new Date().toISOString(),
+                    }),
+                    pendingMemberIds: arrayUnion(user.uid),
+                });
+
+                return { success: true, pending: true };
             } catch (e: any) {
                 console.error("[joinHouseByCode]", e);
                 const offline =
@@ -381,70 +486,164 @@ export const useHouseStore = create<HouseState>()((set, get) => {
                 tasks: addTask(h, name, points).house.tasks,
             })),
 
-        removeTaskFromHouse: (taskId) =>
-            withActive((h) => ({
-                tasks: removeTask(h, taskId).tasks,
-                logs: h.logs.filter((l) => l.taskId !== taskId),
-            })),
+        removeTaskFromHouse: async (taskId) => {
+            const h = getActive();
+            if (!h) return;
+
+            // Update tasks in house doc
+            await withActive((house) => ({ tasks: removeTask(house, taskId).tasks }));
+
+            // Delete orphaned logs from subcollection
+            const logsToDelete = get().logs.filter((l) => l.taskId === taskId);
+            if (logsToDelete.length === 0) return;
+
+            set((s) => ({ logs: s.logs.filter((l) => l.taskId !== taskId) }));
+            try {
+                const batch = writeBatch(db);
+                for (const log of logsToDelete) {
+                    batch.delete(doc(db, 'houses', h.id, 'logs', log.id));
+                }
+                await batch.commit();
+            } catch (e: any) {
+                // On failure, let the onSnapshot listener reconcile the state
+                showToast('Erro ao remover registros associados.');
+            }
+        },
 
         updateTaskInHouse: (taskId, name, points) =>
             withActive((h) => ({
                 tasks: updateTask(h, taskId, name, points).tasks,
             })),
 
-        logTaskInHouse: (taskId) => {
+        logTaskInHouse: async (taskId, completedAt) => {
             const uid = useAuthStore.getState().user?.uid;
-            if (!uid) return Promise.resolve();
-            return withActive((h) => ({ logs: logTask(h, taskId, uid).logs }));
+            const h = getActive();
+            if (!uid || !h) return;
+            if (!h.tasks.some((t) => t.id === taskId)) return;
+            if (!h.members.some((m) => m.id === uid)) return;
+
+            const log: TaskLog = {
+                id: generateId(),
+                taskId,
+                memberId: uid,
+                completedAt: completedAt ?? new Date().toISOString(),
+            };
+
+            set((s) => ({ logs: [log, ...s.logs] }));
+            try {
+                await setDoc(doc(db, 'houses', h.id, 'logs', log.id), log);
+            } catch (e: any) {
+                set((s) => ({ logs: s.logs.filter((l) => l.id !== log.id) }));
+                const offline = e?.code === 'unavailable' || e?.message?.toLowerCase().includes('offline') || e?.message?.toLowerCase().includes('network');
+                showToast(offline ? 'Sem conexão. A ação não foi salva.' : 'Erro ao salvar. Tente novamente.');
+                throw e;
+            }
         },
 
-        removeLogFromHouse: (logId) =>
-            withActive((h) => ({ logs: removeLog(h, logId).logs })),
+        removeLogFromHouse: async (logId) => {
+            const h = getActive();
+            if (!h) return;
+            const prev = get().logs;
+            set((s) => ({ logs: s.logs.filter((l) => l.id !== logId) }));
+            try {
+                await deleteDoc(doc(db, 'houses', h.id, 'logs', logId));
+            } catch (e: any) {
+                set({ logs: prev });
+                const offline = e?.code === 'unavailable' || e?.message?.toLowerCase().includes('offline') || e?.message?.toLowerCase().includes('network');
+                showToast(offline ? 'Sem conexão. A ação não foi salva.' : 'Erro ao salvar. Tente novamente.');
+                throw e;
+            }
+        },
 
-        updateLogInHouse: (logId, taskId) =>
-            withActive((h) => ({ logs: updateLog(h, logId, taskId).logs })),
+        updateLogInHouse: async (logId, taskId) => {
+            const h = getActive();
+            if (!h) return;
+            if (!h.tasks.some((t) => t.id === taskId)) return;
+            const prev = get().logs;
+            set((s) => ({ logs: s.logs.map((l) => l.id === logId ? { ...l, taskId } : l) }));
+            try {
+                await updateDoc(doc(db, 'houses', h.id, 'logs', logId), { taskId });
+            } catch (e: any) {
+                set({ logs: prev });
+                showToast('Erro ao salvar. Tente novamente.');
+                throw e;
+            }
+        },
 
         renameHouse: (name) => withActive(() => ({ name })),
 
         updateHousePrize: (prize) => withActive(() => ({ prize })),
 
-        updateHousePeriod: (period) =>
-            withActive((h) => {
-                const newPeriodStart =
-                    getCurrentPeriodStart(period).toISOString();
-                let history = h.history ?? [];
-                if (h.logs.length > 0) {
-                    const alreadyArchived = history.some(
-                        (r) => r.periodStart === h.periodStart,
-                    );
-                    if (!alreadyArchived) {
-                        const scores = computePeriodScores(h);
-                        history = [
-                            ...history,
-                            {
-                                periodStart: h.periodStart,
-                                periodEnd: new Date().toISOString(),
-                                scores,
-                            },
-                        ];
-                    }
-                }
-                return {
-                    period,
-                    periodStart: newPeriodStart,
-                    logs: [],
-                    history,
-                };
-            }),
+        updateHousePeriod: async (period) => {
+            const h = getActive();
+            if (!h) return;
 
-        addTaskAndLogInHouse: (name, points) => {
+            const allLogs = get().logs;
+            const newPeriodStart = getCurrentPeriodStart(period).toISOString();
+            let history = h.history ?? [];
+
+            if (allLogs.length > 0) {
+                const alreadyArchived = history.some((r) => r.periodStart === h.periodStart);
+                if (!alreadyArchived) {
+                    history = [...history, buildPeriodRecord(h, allLogs)];
+                }
+            }
+
+            try {
+                await updateHouseFields(h.id, { period, periodStart: newPeriodStart, history });
+            } catch {
+                return; // toast + rollback in updateHouseFields
+            }
+
+            // Delete all logs from subcollection
+            const logsToDelete = allLogs;
+            set({ logs: [] });
+            if (logsToDelete.length > 0) {
+                try {
+                    const batch = writeBatch(db);
+                    for (const log of logsToDelete) {
+                        batch.delete(doc(db, 'houses', h.id, 'logs', log.id));
+                    }
+                    await batch.commit();
+                } catch (e: any) {
+                    showToast('Erro ao limpar registros do período anterior.');
+                }
+            }
+        },
+
+        addTaskAndLogInHouse: async (name, points, completedAt) => {
             const uid = useAuthStore.getState().user?.uid;
-            if (!uid) return Promise.resolve();
-            return withActive((h) => {
-                const { house: houseWithTask, task: newTask } = addTask(h, name, points);
-                const houseWithLog = logTask(houseWithTask, newTask.id, uid);
-                return { tasks: houseWithLog.tasks, logs: houseWithLog.logs };
-            });
+            const h = getActive();
+            if (!uid || !h) return;
+
+            const { house: houseWithTask, task: newTask } = addTask(h, name, points);
+
+            // Optimistic update for task
+            const prev = get().houses;
+            set((s) => ({ houses: s.houses.map((hh) => hh.id === h.id ? { ...hh, tasks: houseWithTask.tasks } : hh) }));
+
+            try {
+                await updateDoc(doc(db, 'houses', h.id), { tasks: houseWithTask.tasks });
+            } catch (e: any) {
+                set({ houses: prev });
+                showToast('Erro ao salvar. Tente novamente.');
+                return;
+            }
+
+            // Write log to subcollection
+            const log: TaskLog = {
+                id: generateId(),
+                taskId: newTask.id,
+                memberId: uid,
+                completedAt: completedAt ?? new Date().toISOString(),
+            };
+            set((s) => ({ logs: [log, ...s.logs] }));
+            try {
+                await setDoc(doc(db, 'houses', h.id, 'logs', log.id), log);
+            } catch (e: any) {
+                set((s) => ({ logs: s.logs.filter((l) => l.id !== log.id) }));
+                showToast('Erro ao salvar. Tente novamente.');
+            }
         },
 
         leaveHouse: async (id) => {
@@ -476,6 +675,23 @@ export const useHouseStore = create<HouseState>()((set, get) => {
             await redirectActiveAway(id);
         },
 
+        removeMemberFromHouse: async (houseId, memberId) => {
+            try {
+                const houseRef = doc(db, "houses", houseId);
+                const snapshot = await getDoc(houseRef);
+                if (!snapshot.exists()) return;
+                const data = snapshot.data() as House;
+                await updateDoc(houseRef, {
+                    memberIds: (data.memberIds ?? []).filter((uid) => uid !== memberId),
+                    members: data.members.filter((m) => m.id !== memberId),
+                });
+            } catch (e: any) {
+                console.error("[removeMemberFromHouse] error:", e);
+                const offline = e?.code === "unavailable" || e?.message?.toLowerCase().includes("offline");
+                throw new Error(offline ? "Sem conexão. Tente novamente." : "Erro ao remover membro. Tente novamente.");
+            }
+        },
+
         renameCurrentUserInHouses: async (name) => {
             const user = useAuthStore.getState().user;
             if (!user) return;
@@ -488,12 +704,19 @@ export const useHouseStore = create<HouseState>()((set, get) => {
                             members: house.members.map((m) =>
                                 m.id === user.uid ? { ...m, name } : m,
                             ),
+                            history: (house.history ?? []).map((record) => ({
+                                ...record,
+                                scores: record.scores.map((s) =>
+                                    s.memberId === user.uid ? { ...s, memberName: name } : s,
+                                ),
+                            })),
                         }),
                     ),
             );
         },
 
         seedMockData: async () => {
+            if (!__DEV__) return;
             const h = getActive();
             if (!h) return;
 
@@ -510,7 +733,6 @@ export const useHouseStore = create<HouseState>()((set, get) => {
             const cleanMemberIds = h.memberIds.filter(
                 (id) => !mockMemberIds.has(id),
             );
-            const cleanLogs = h.logs.filter((l) => !l.id.startsWith("mock-"));
             const allMembers = [...cleanMembers, ...mockMembers];
             const allMemberIds = [
                 ...cleanMemberIds,
@@ -520,7 +742,7 @@ export const useHouseStore = create<HouseState>()((set, get) => {
             const tasks = h.tasks;
             if (tasks.length === 0) return;
             const now = new Date();
-            const newLogs = [];
+            const newLogs: TaskLog[] = [];
             for (let daysAgo = 13; daysAgo >= 0; daysAgo--) {
                 for (const member of allMembers) {
                     const count = Math.floor(Math.random() * 3) + 1;
@@ -544,11 +766,19 @@ export const useHouseStore = create<HouseState>()((set, get) => {
             }
 
             try {
-                await updateHouseFields(h.id, {
-                    members: allMembers,
-                    memberIds: allMemberIds,
-                    logs: [...cleanLogs, ...newLogs],
-                });
+                await updateHouseFields(h.id, { members: allMembers, memberIds: allMemberIds });
+
+                const batch = writeBatch(db);
+                for (const log of newLogs) {
+                    batch.set(doc(db, 'houses', h.id, 'logs', log.id), log);
+                }
+                await batch.commit();
+
+                // Update local store logs state
+                set((s) => ({
+                    logs: [...s.logs.filter(l => !l.id.startsWith('mock-')), ...newLogs].sort((a, b) => b.completedAt.localeCompare(a.completedAt)),
+                }));
+
                 showToast(
                     `Mock reinserido: ${mockMembers.length} membros e ${newLogs.length} atividades!`,
                     "success",
@@ -592,6 +822,7 @@ export function useHouse() {
             updateHousePrize: s.updateHousePrize,
             updateHousePeriod: s.updateHousePeriod,
             leaveHouse: s.leaveHouse,
+            removeMemberFromHouse: s.removeMemberFromHouse,
             renameCurrentUserInHouses: s.renameCurrentUserInHouses,
             seedMockData: s.seedMockData,
         })),
@@ -604,6 +835,7 @@ export function useHouse() {
  */
 export function HouseSync() {
     const userId = useAuthStore((s) => s.user?.uid ?? null);
+    const activeHouseId = useHouseStore((s) => s.activeHouseId);
 
     useEffect(() => {
         if (!userId) {
@@ -612,6 +844,14 @@ export function HouseSync() {
         }
         return useHouseStore.getState().subscribe(userId);
     }, [userId]);
+
+    useEffect(() => {
+        if (!activeHouseId) {
+            useHouseStore.setState({ logs: [], logsLoading: false });
+            return;
+        }
+        return useHouseStore.getState().subscribeToLogs(activeHouseId);
+    }, [activeHouseId]);
 
     return null;
 }

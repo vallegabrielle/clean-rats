@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,9 @@ import { LogActivityModal } from '../components/LogActivityModal';
 import { HouseSettingsModal } from '../components/HouseSettingsModal';
 import { EmptyState } from '../components/EmptyState';
 import { PeriodProgressBar } from '../components/home/PeriodProgressBar';
+import { PeriodResetBanner } from '../components/home/PeriodResetBanner';
 import { ActivityItem, DateSeparator } from '../components/home/ActivityItem';
+import { AdBanner } from '../components/AdBanner';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -35,8 +37,8 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const house = useHouseStore(selectActiveHouse);
-  const { loadingHouses: loadingHouse, removeLogFromHouse } = useHouseStore(
-    useShallow((s) => ({ loadingHouses: s.loadingHouses, removeLogFromHouse: s.removeLogFromHouse }))
+  const { loadingHouses: loadingHouse, removeLogFromHouse, logs } = useHouseStore(
+    useShallow((s) => ({ loadingHouses: s.loadingHouses, removeLogFromHouse: s.removeLogFromHouse, logs: s.logs }))
   );
   const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -44,9 +46,12 @@ export default function HomeScreen() {
   const [editingLogId, setEditingLogId] = useState<string | undefined>();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsOpenToRequests, setSettingsOpenToRequests] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(30);
   const openSwipeRef = useRef<Swipeable | null>(null);
   const scrollViewRef = useRef<import('react-native').ScrollView>(null);
   const feedY = useRef(0);
+
+  useEffect(() => { setVisibleCount(30); }, [house?.id]);
 
   function handleSwipeOpen(ref: Swipeable) {
     if (openSwipeRef.current && openSwipeRef.current !== ref) {
@@ -82,19 +87,20 @@ export default function HomeScreen() {
     );
   }
 
-  const logs = house
-    ? [...new Map(house.logs.map((l) => [l.id, l])).values()].reverse()
-    : [];
-  const scores = house ? computeScores(house) : [];
+  // logs come from store (already sorted desc by completedAt)
+  const scores = house ? computeScores(house, logs) : [];
   const myMember = house?.members.find((m) => m.id === user?.uid) ?? null;
   const myScore = scores.find((s) => s.member.id === myMember?.id) ?? null;
   const leader = scores[0] ?? null;
+  const myRank = myMember ? scores.findIndex((s) => s.member.id === myMember.id) + 1 : 0;
+  const rankLabel = ({ 1: '🥇', 2: '🥈', 3: '🥉' } as Record<number, string>)[myRank] ?? `#${myRank}`;
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar style="light" />
 
-      {/* Header */}
+      {/* Header (takes remaining flex space above the ad banner) */}
+      <View style={styles.content}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.menuBtn} onPress={() => setMenuOpen(true)}>
           <View style={styles.menuLine} />
@@ -146,6 +152,8 @@ export default function HomeScreen() {
         </View>
       ) : (
         <View style={styles.houseContent}>
+        {/* Period reset banner — only visible when this client just performed a reset */}
+        <PeriodResetBanner />
         {/* Top bar */}
         <View style={styles.topBar}>
           <TouchableOpacity style={styles.topBarItem} onPress={() => navigation.navigate('Members')}>
@@ -159,12 +167,12 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <View style={styles.topBarDivider} />
           <TouchableOpacity style={styles.topBarItem} onPress={() => scrollViewRef.current?.scrollTo({ y: feedY.current, animated: true })}>
-            <Text style={styles.topBarValue}>{house.logs.length}</Text>
+            <Text style={styles.topBarValue}>{logs.length}</Text>
             <Text style={styles.topBarLabel}>atividades</Text>
           </TouchableOpacity>
           <View style={styles.topBarDivider} />
           <TouchableOpacity style={styles.topBarItem} onPress={() => navigation.navigate('History')}>
-            <Text style={styles.topBarValue}>{house.history.length}</Text>
+            <Text style={styles.topBarValue}>{(house.history ?? []).length}</Text>
             <Text style={styles.topBarLabel}>histórico</Text>
           </TouchableOpacity>
         </View>
@@ -176,7 +184,7 @@ export default function HomeScreen() {
               <View style={styles.scoresRow}>
                 {myScore && (
                   <View style={styles.scoreCard}>
-                    <Text style={styles.scoreCardLabel}>Meus pontos</Text>
+                    <Text style={styles.scoreCardLabel}>{myRank > 0 ? `${rankLabel} ` : ''}Meus pontos</Text>
                     <Text style={styles.scoreCardValue}>{myScore.points}</Text>
                     <Text style={styles.scoreCardSub}>{myScore.completedTasks} atividade(s)</Text>
                   </View>
@@ -227,26 +235,39 @@ export default function HomeScreen() {
               style={styles.emptyFeed}
             />
           ) : (
-            logs.flatMap((log, i) => {
-              const dateKey = getDateKey(log.completedAt);
-              const prevDateKey = i > 0 ? getDateKey(logs[i - 1].completedAt) : null;
-              const items: React.ReactNode[] = [];
-              if (dateKey !== prevDateKey) {
-                items.push(<DateSeparator key={`sep-${dateKey}`} label={formatDateLabel(log.completedAt)} />);
-              }
-              items.push(
-                <ActivityItem
-                  key={log.id}
-                  log={log}
-                  house={house}
-                  currentUserId={user?.uid ?? null}
-                  onEdit={handleEditLog}
-                  onDelete={handleDeleteLog}
-                  onOpen={handleSwipeOpen}
-                />,
-              );
-              return items;
-            })
+            <>
+              {logs.slice(0, visibleCount).flatMap((log, i) => {
+                const dateKey = getDateKey(log.completedAt);
+                const prevDateKey = i > 0 ? getDateKey(logs[i - 1].completedAt) : null;
+                const items: React.ReactNode[] = [];
+                if (dateKey !== prevDateKey) {
+                  items.push(<DateSeparator key={`sep-${dateKey}`} label={formatDateLabel(log.completedAt)} />);
+                }
+                items.push(
+                  <ActivityItem
+                    key={log.id}
+                    log={log}
+                    house={house}
+                    currentUserId={user?.uid ?? null}
+                    onEdit={handleEditLog}
+                    onDelete={handleDeleteLog}
+                    onOpen={handleSwipeOpen}
+                    isFirst={i === 0}
+                  />,
+                );
+                return items;
+              })}
+              {logs.length > visibleCount && (
+                <TouchableOpacity
+                  style={styles.loadMoreBtn}
+                  onPress={() => setVisibleCount((c) => c + 30)}
+                >
+                  <Text style={styles.loadMoreText}>
+                    Carregar mais ({logs.length - visibleCount})
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
 
         </ScrollView>
@@ -271,6 +292,10 @@ export default function HomeScreen() {
         onClose={() => setMenuOpen(false)}
       />
 
+      </View>
+
+      <AdBanner />
+
     </SafeAreaView>
   );
 }
@@ -279,6 +304,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
+  content: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: {
     flexDirection: 'row',
@@ -479,5 +505,18 @@ const styles = StyleSheet.create({
     width: 1,
     backgroundColor: COLORS.border,
     marginVertical: 10,
+  },
+  loadMoreBtn: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginTop: 4,
+  },
+  loadMoreText: {
+    fontFamily: 'NotoSansMono_400Regular',
+    fontSize: 13,
+    color: COLORS.textMuted,
   },
 });

@@ -1,4 +1,4 @@
-import { House, MemberScore, Period, PeriodRecord, PeriodScore } from '../types';
+import { House, MemberScore, Period, PeriodRecord, PeriodScore, TaskLog } from '../types';
 
 export function getCurrentPeriodStart(period: Period, from: Date = new Date()): Date {
   const d = new Date(from);
@@ -19,9 +19,9 @@ export function getCurrentPeriodStart(period: Period, from: Date = new Date()): 
   return d;
 }
 
-export function computePeriodScores(house: House): PeriodScore[] {
+export function computePeriodScores(house: Pick<House, 'members' | 'tasks'>, logs: TaskLog[]): PeriodScore[] {
   return house.members.map((m) => {
-    const memberLogs = house.logs.filter((l) => l.memberId === m.id);
+    const memberLogs = logs.filter((l) => l.memberId === m.id);
     const points = memberLogs.reduce((sum, l) => {
       const task = house.tasks.find((t) => t.id === l.taskId);
       return sum + (task?.points ?? 0);
@@ -30,10 +30,10 @@ export function computePeriodScores(house: House): PeriodScore[] {
   });
 }
 
-export function computeScores(house: House): MemberScore[] {
+export function computeScores(house: Pick<House, 'members' | 'tasks'>, logs: TaskLog[]): MemberScore[] {
   return house.members
     .map((member) => {
-      const memberLogs = house.logs.filter((l) => l.memberId === member.id);
+      const memberLogs = logs.filter((l) => l.memberId === member.id);
       const points = memberLogs.reduce((sum, l) => {
         const task = house.tasks.find((t) => t.id === l.taskId);
         return sum + (task?.points ?? 0);
@@ -44,15 +44,17 @@ export function computeScores(house: House): MemberScore[] {
 }
 
 export type PeriodCheckResult =
-  | { type: 'none' }                  // mesmo período, nada a fazer
-  | { type: 'init'; house: House }    // sem periodStart — inicializa só localmente, sem write
-  | { type: 'reset'; house: House };  // período expirou — deve escrever no Firestore
+  | { type: 'none' }                        // mesmo período, nada a fazer
+  | { type: 'init'; house: House }          // sem periodStart — inicializa só localmente, sem write
+  | { type: 'reset'; newPeriodStart: string }; // período expirou — deve escrever no Firestore
 
 /**
  * Verifica o estado do período da toca.
  * - 'none'  → nada mudou, não escrever
  * - 'init'  → casa antiga sem periodStart, inicializar localmente sem write
  * - 'reset' → período expirou, arquivar e limpar logs (requer write)
+ *
+ * Note: history archiving and log cleanup are handled by the subscriber.
  */
 export function checkAndResetPeriod(house: House): PeriodCheckResult {
   const now = new Date();
@@ -72,23 +74,26 @@ export function checkAndResetPeriod(house: House): PeriodCheckResult {
   // Ainda no mesmo período — nada a fazer
   if (storedStart >= currentPeriodStart) return { type: 'none' };
 
-  // Período expirou: arquiva e limpa os logs
-  const scores = computePeriodScores(house);
-
-  const alreadyArchived = (house.history ?? []).some((r) => r.periodStart === house.periodStart);
-
-  const newRecord: PeriodRecord = {
-    periodStart: house.periodStart,
-    periodEnd: now.toISOString(),
-    scores,
-  };
-
-  const history = alreadyArchived
-    ? house.history
-    : [...(house.history ?? []), newRecord];
-
+  // Período expirou: return new period start, archiving is done by the subscriber
   return {
     type: 'reset',
-    house: { ...house, logs: [], periodStart: currentPeriodStart.toISOString(), history },
+    newPeriodStart: currentPeriodStart.toISOString(),
+  };
+}
+
+/**
+ * Builds a PeriodRecord for archiving, using the provided logs.
+ * Call this before clearing logs when a period expires.
+ */
+export function buildPeriodRecord(
+  house: Pick<House, 'members' | 'tasks' | 'periodStart' | 'prize'>,
+  logs: TaskLog[],
+): PeriodRecord {
+  const scores = computePeriodScores(house, logs);
+  return {
+    periodStart: house.periodStart,
+    periodEnd: new Date().toISOString(),
+    scores,
+    ...(house.prize ? { prize: house.prize } : {}),
   };
 }

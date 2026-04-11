@@ -14,6 +14,7 @@ import {
 import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHouseStore, selectActiveHouse } from '../contexts/HouseContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useShallow } from 'zustand/react/shallow';
 import { COLORS } from '../constants';
 import { styles } from './house-settings/styles';
@@ -32,14 +33,17 @@ export function HouseSettingsModal({
   openToRequests?: boolean;
 }) {
   const house = useHouseStore(selectActiveHouse);
-  const { renameHouse, updateHousePrize, updateHousePeriod, leaveHouse, approveJoinRequest, rejectJoinRequest } = useHouseStore(
+  const { user } = useAuth();
+  const { renameHouse, updateHousePrize, updateHousePeriod, leaveHouse, removeMemberFromHouse, approveJoinRequest, rejectJoinRequest, logs } = useHouseStore(
     useShallow((s) => ({
       renameHouse: s.renameHouse,
       updateHousePrize: s.updateHousePrize,
       updateHousePeriod: s.updateHousePeriod,
       leaveHouse: s.leaveHouse,
+      removeMemberFromHouse: s.removeMemberFromHouse,
       approveJoinRequest: s.approveJoinRequest,
       rejectJoinRequest: s.rejectJoinRequest,
+      logs: s.logs,
     }))
   );
   const insets = useSafeAreaInsets();
@@ -95,12 +99,14 @@ export function HouseSettingsModal({
               members={house.members}
               pendingRequests={house.pendingRequests}
               defaultExpanded={openToRequests}
+              currentUserId={user?.uid}
               onApprove={(userId) => approveJoinRequest(house.id, userId)}
               onReject={(userId) => rejectJoinRequest(house.id, userId)}
+              onRemove={(userId) => removeMemberFromHouse(house.id, userId)}
             />
             <RenameOption currentName={house.name} onRename={renameHouse} />
             <PrizeOption currentPrize={house.prize} onUpdate={updateHousePrize} />
-            <PeriodOption currentPeriod={house.period} onUpdate={updateHousePeriod} />
+            <PeriodOption currentPeriod={house.period} logCount={logs.length} onUpdate={updateHousePeriod} />
 
             <TouchableOpacity style={styles.option} onPress={handleShare}>
               <Text style={styles.optionIcon}>↑</Text>

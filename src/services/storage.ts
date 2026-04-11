@@ -14,7 +14,6 @@ function isValidHouse(data: unknown): data is House {
     (h.period === 'weekly' || h.period === 'biweekly' || h.period === 'monthly') &&
     Array.isArray(h.members) &&
     Array.isArray(h.tasks) &&
-    Array.isArray(h.logs) &&
     typeof h.createdAt === 'string'
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
 import { JoinRequest } from "../../types";
 import { COLORS } from "../../constants";
 import { styles } from "./styles";
@@ -10,16 +10,20 @@ type Props = {
     members: Member[];
     pendingRequests?: JoinRequest[];
     defaultExpanded?: boolean;
+    currentUserId?: string;
     onApprove?: (userId: string) => Promise<void>;
     onReject?: (userId: string) => Promise<void>;
+    onRemove?: (userId: string) => Promise<void>;
 };
 
 export function MembersSection({
     members,
     pendingRequests = [],
     defaultExpanded = false,
+    currentUserId,
     onApprove,
     onReject,
+    onRemove,
 }: Props) {
     const [showMembers, setShowMembers] = useState(defaultExpanded);
     const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -65,21 +69,51 @@ export function MembersSection({
             {showMembers && (
                 <>
                     <View style={styles.membersList}>
-                        {members.map((m) => (
-                            <View key={m.id} style={styles.memberChip}>
-                                <View style={styles.memberAvatar}>
-                                    <Text style={styles.memberAvatarText}>
-                                        {m.name.slice(0, 2).toUpperCase()}
+                        {members.map((m) => {
+                            const isLoading = loadingId === m.id;
+                            const canRemove = onRemove && m.id !== currentUserId;
+                            return (
+                                <View key={m.id} style={styles.memberChip}>
+                                    <View style={styles.memberAvatar}>
+                                        <Text style={styles.memberAvatarText}>
+                                            {m.name.slice(0, 2).toUpperCase()}
+                                        </Text>
+                                    </View>
+                                    <Text style={styles.memberName} numberOfLines={1}>
+                                        {m.name}
                                     </Text>
+                                    {canRemove && (
+                                        isLoading ? (
+                                            <ActivityIndicator size="small" color={COLORS.textMuted} />
+                                        ) : (
+                                            <TouchableOpacity
+                                                onPress={() => {
+                                                    Alert.alert(
+                                                        'Remover membro',
+                                                        `Deseja remover "${m.name}" da toca?`,
+                                                        [
+                                                            { text: 'Cancelar', style: 'cancel' },
+                                                            {
+                                                                text: 'Remover',
+                                                                style: 'destructive',
+                                                                onPress: () => {
+                                                                    setLoadingId(m.id);
+                                                                    onRemove(m.id).finally(() => setLoadingId(null));
+                                                                },
+                                                            },
+                                                        ],
+                                                    );
+                                                }}
+                                                disabled={loadingId !== null}
+                                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                            >
+                                                <Text style={styles.memberRemoveText}>✕</Text>
+                                            </TouchableOpacity>
+                                        )
+                                    )}
                                 </View>
-                                <Text
-                                    style={styles.memberName}
-                                    numberOfLines={1}
-                                >
-                                    {m.name}
-                                </Text>
-                            </View>
-                        ))}
+                            );
+                        })}
                     </View>
 
                     {pendingRequests.length > 0 && (

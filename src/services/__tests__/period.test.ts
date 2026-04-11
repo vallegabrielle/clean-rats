@@ -3,8 +3,9 @@ import {
     computeScores,
     computePeriodScores,
     checkAndResetPeriod,
+    buildPeriodRecord,
 } from '../period';
-import { House } from '../../types';
+import { House, TaskLog } from '../../types';
 
 function makeHouse(overrides: Partial<House> = {}): House {
     return {
@@ -21,7 +22,6 @@ function makeHouse(overrides: Partial<House> = {}): House {
             { id: 't1', name: 'Lavar louça', points: 10, isDefault: true },
             { id: 't2', name: 'Varrer', points: 20, isDefault: true },
         ],
-        logs: [],
         createdAt: '2024-01-01T00:00:00.000Z',
         // Jan 14, 2024 é domingo — início correto da semana de Jan 17
         periodStart: new Date(2024, 0, 14).toISOString(),
@@ -114,13 +114,12 @@ describe('getCurrentPeriodStart', () => {
 
 describe('computeScores', () => {
     test('ordena membros por pontos decrescente', () => {
-        const house = makeHouse({
-            logs: [
-                { id: 'l1', taskId: 't2', memberId: 'u1', completedAt: '2024-01-14T10:00:00.000Z' }, // Alice: 20
-                { id: 'l2', taskId: 't1', memberId: 'u2', completedAt: '2024-01-14T10:00:00.000Z' }, // Bob: 10
-            ],
-        });
-        const scores = computeScores(house);
+        const house = makeHouse();
+        const logs: TaskLog[] = [
+            { id: 'l1', taskId: 't2', memberId: 'u1', completedAt: '2024-01-14T10:00:00.000Z' }, // Alice: 20
+            { id: 'l2', taskId: 't1', memberId: 'u2', completedAt: '2024-01-14T10:00:00.000Z' }, // Bob: 10
+        ];
+        const scores = computeScores(house, logs);
         expect(scores[0].member.id).toBe('u1');
         expect(scores[0].points).toBe(20);
         expect(scores[1].member.id).toBe('u2');
@@ -128,57 +127,57 @@ describe('computeScores', () => {
     });
 
     test('membro sem logs tem 0 pontos e 0 tarefas', () => {
-        const scores = computeScores(makeHouse());
+        const scores = computeScores(makeHouse(), []);
         expect(scores.every((s) => s.points === 0)).toBe(true);
         expect(scores.every((s) => s.completedTasks === 0)).toBe(true);
     });
 
     test('não contamina pontos entre membros', () => {
-        const house = makeHouse({
-            logs: [{ id: 'l1', taskId: 't1', memberId: 'u1', completedAt: '2024-01-14T10:00:00.000Z' }],
-        });
-        const bob = computeScores(house).find((s) => s.member.id === 'u2')!;
+        const house = makeHouse();
+        const logs: TaskLog[] = [
+            { id: 'l1', taskId: 't1', memberId: 'u1', completedAt: '2024-01-14T10:00:00.000Z' },
+        ];
+        const bob = computeScores(house, logs).find((s) => s.member.id === 'u2')!;
         expect(bob.points).toBe(0);
         expect(bob.completedTasks).toBe(0);
     });
 
     test('acumula pontos de múltiplos logs do mesmo membro', () => {
-        const house = makeHouse({
-            logs: [
-                { id: 'l1', taskId: 't1', memberId: 'u1', completedAt: '2024-01-14T10:00:00.000Z' }, // 10
-                { id: 'l2', taskId: 't2', memberId: 'u1', completedAt: '2024-01-15T10:00:00.000Z' }, // 20
-            ],
-        });
-        const alice = computeScores(house).find((s) => s.member.id === 'u1')!;
+        const house = makeHouse();
+        const logs: TaskLog[] = [
+            { id: 'l1', taskId: 't1', memberId: 'u1', completedAt: '2024-01-14T10:00:00.000Z' }, // 10
+            { id: 'l2', taskId: 't2', memberId: 'u1', completedAt: '2024-01-15T10:00:00.000Z' }, // 20
+        ];
+        const alice = computeScores(house, logs).find((s) => s.member.id === 'u1')!;
         expect(alice.points).toBe(30);
         expect(alice.completedTasks).toBe(2);
     });
 
     test('empate: ambos os membros aparecem com mesma pontuação', () => {
-        const house = makeHouse({
-            logs: [
-                { id: 'l1', taskId: 't1', memberId: 'u1', completedAt: '2024-01-14T10:00:00.000Z' }, // 10
-                { id: 'l2', taskId: 't1', memberId: 'u2', completedAt: '2024-01-14T10:00:00.000Z' }, // 10
-            ],
-        });
-        const scores = computeScores(house);
+        const house = makeHouse();
+        const logs: TaskLog[] = [
+            { id: 'l1', taskId: 't1', memberId: 'u1', completedAt: '2024-01-14T10:00:00.000Z' }, // 10
+            { id: 'l2', taskId: 't1', memberId: 'u2', completedAt: '2024-01-14T10:00:00.000Z' }, // 10
+        ];
+        const scores = computeScores(house, logs);
         expect(scores).toHaveLength(2);
         expect(scores[0].points).toBe(10);
         expect(scores[1].points).toBe(10);
     });
 
     test('log para tarefa deletada conta 0 pontos (não estoura)', () => {
-        const house = makeHouse({
-            logs: [{ id: 'l1', taskId: 'task-deletada', memberId: 'u1', completedAt: '2024-01-14T10:00:00.000Z' }],
-        });
-        const alice = computeScores(house).find((s) => s.member.id === 'u1')!;
+        const house = makeHouse();
+        const logs: TaskLog[] = [
+            { id: 'l1', taskId: 'task-deletada', memberId: 'u1', completedAt: '2024-01-14T10:00:00.000Z' },
+        ];
+        const alice = computeScores(house, logs).find((s) => s.member.id === 'u1')!;
         expect(alice.points).toBe(0);
         // mas completedTasks conta o log mesmo sem tarefa encontrada
         expect(alice.completedTasks).toBe(1);
     });
 
     test('inclui todos os membros mesmo sem logs', () => {
-        const scores = computeScores(makeHouse());
+        const scores = computeScores(makeHouse(), []);
         expect(scores).toHaveLength(2);
     });
 });
@@ -187,21 +186,22 @@ describe('computeScores', () => {
 
 describe('computePeriodScores', () => {
     test('retorna um score por membro', () => {
-        const scores = computePeriodScores(makeHouse());
+        const scores = computePeriodScores(makeHouse(), []);
         expect(scores).toHaveLength(2);
     });
 
     test('score contém memberId e memberName corretos', () => {
-        const scores = computePeriodScores(makeHouse());
+        const scores = computePeriodScores(makeHouse(), []);
         expect(scores[0]).toMatchObject({ memberId: 'u1', memberName: 'Alice' });
         expect(scores[1]).toMatchObject({ memberId: 'u2', memberName: 'Bob' });
     });
 
     test('pontos calculados corretamente', () => {
-        const house = makeHouse({
-            logs: [{ id: 'l1', taskId: 't2', memberId: 'u1', completedAt: '2024-01-14T10:00:00.000Z' }], // 20
-        });
-        const alice = computePeriodScores(house).find((s) => s.memberId === 'u1')!;
+        const house = makeHouse();
+        const logs: TaskLog[] = [
+            { id: 'l1', taskId: 't2', memberId: 'u1', completedAt: '2024-01-14T10:00:00.000Z' }, // 20
+        ];
+        const alice = computePeriodScores(house, logs).find((s) => s.memberId === 'u1')!;
         expect(alice.points).toBe(20);
     });
 });
@@ -251,63 +251,12 @@ describe('checkAndResetPeriod', () => {
         expect(checkAndResetPeriod(house).type).toBe('reset');
     });
 
-    test("reset: zera os logs", () => {
-        const house = makeHouse({
-            periodStart: new Date(2023, 0, 1).toISOString(),
-            logs: [{ id: 'l1', taskId: 't1', memberId: 'u1', completedAt: '2023-01-02T00:00:00.000Z' }],
-        });
-        const result = checkAndResetPeriod(house);
-        if (result.type === 'reset') {
-            expect(result.house.logs).toEqual([]);
-        } else {
-            fail('esperado reset');
-        }
-    });
-
-    test("reset: preserva tarefas", () => {
+    test("reset: retorna newPeriodStart válido", () => {
         const house = makeHouse({ periodStart: new Date(2023, 0, 1).toISOString() });
         const result = checkAndResetPeriod(house);
         if (result.type === 'reset') {
-            expect(result.house.tasks).toEqual(house.tasks);
-        }
-    });
-
-    test("reset: preserva membros", () => {
-        const house = makeHouse({ periodStart: new Date(2023, 0, 1).toISOString() });
-        const result = checkAndResetPeriod(house);
-        if (result.type === 'reset') {
-            expect(result.house.members).toEqual(house.members);
-        }
-    });
-
-    test("reset: cria registro no histórico", () => {
-        const house = makeHouse({ periodStart: new Date(2023, 0, 1).toISOString() });
-        const result = checkAndResetPeriod(house);
-        if (result.type === 'reset') {
-            expect(result.house.history).toHaveLength(1);
-        }
-    });
-
-    test("reset: histórico tem scores corretos", () => {
-        const house = makeHouse({
-            periodStart: new Date(2023, 0, 1).toISOString(),
-            logs: [{ id: 'l1', taskId: 't1', memberId: 'u1', completedAt: '2023-01-02T00:00:00.000Z' }], // Alice: 10
-        });
-        const result = checkAndResetPeriod(house);
-        if (result.type === 'reset') {
-            const record = result.house.history[0];
-            const alice = record.scores.find((s) => s.memberId === 'u1')!;
-            expect(alice.points).toBe(10);
-            expect(alice.completedTasks).toBe(1);
-        }
-    });
-
-    test("reset: periodStart do registro é o periodStart anterior", () => {
-        const oldStart = new Date(2023, 0, 1).toISOString();
-        const house = makeHouse({ periodStart: oldStart });
-        const result = checkAndResetPeriod(house);
-        if (result.type === 'reset') {
-            expect(result.house.history[0].periodStart).toBe(oldStart);
+            expect(result.newPeriodStart).toBeTruthy();
+            expect(new Date(result.newPeriodStart).toString()).not.toBe('Invalid Date');
         }
     });
 
@@ -315,40 +264,60 @@ describe('checkAndResetPeriod', () => {
         const house = makeHouse({ periodStart: new Date(2023, 0, 1).toISOString() });
         const result = checkAndResetPeriod(house);
         if (result.type === 'reset') {
-            const newStart = new Date(result.house.periodStart);
+            const newStart = new Date(result.newPeriodStart);
             // Quarta Jan 17 → semana começa domingo Jan 14
             expect(newStart.getDate()).toBe(14);
             expect(newStart.getMonth()).toBe(0);
             expect(newStart.getFullYear()).toBe(2024);
         }
     });
+});
 
-    test("reset: não duplica entrada no histórico já arquivada", () => {
-        const oldStart = new Date(2023, 0, 1).toISOString();
-        const house = makeHouse({
-            periodStart: oldStart,
-            history: [{ periodStart: oldStart, periodEnd: '2023-01-07T00:00:00.000Z', scores: [] }],
-        });
-        const result = checkAndResetPeriod(house);
-        if (result.type === 'reset') {
-            expect(result.house.history).toHaveLength(1);
-        }
+// ─── buildPeriodRecord ──────────────────────────────────────────────────────
+
+describe('buildPeriodRecord', () => {
+    beforeEach(() => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date(2024, 0, 17));
     });
 
-    test("reset: acumula no histórico existente sem sobrescrever", () => {
-        const previousRecord = {
-            periodStart: new Date(2022, 0, 1).toISOString(),
-            periodEnd: new Date(2022, 0, 7).toISOString(),
-            scores: [],
-        };
-        const house = makeHouse({
-            periodStart: new Date(2023, 0, 1).toISOString(),
-            history: [previousRecord],
-        });
-        const result = checkAndResetPeriod(house);
-        if (result.type === 'reset') {
-            expect(result.house.history).toHaveLength(2);
-            expect(result.house.history[0]).toEqual(previousRecord);
-        }
+    afterEach(() => {
+        jest.useRealTimers();
+    });
+
+    test('retorna record com periodStart da casa', () => {
+        const oldStart = new Date(2023, 0, 1).toISOString();
+        const house = makeHouse({ periodStart: oldStart });
+        const record = buildPeriodRecord(house, []);
+        expect(record.periodStart).toBe(oldStart);
+    });
+
+    test('retorna record com periodEnd como timestamp atual', () => {
+        const house = makeHouse({ periodStart: new Date(2023, 0, 1).toISOString() });
+        const record = buildPeriodRecord(house, []);
+        expect(new Date(record.periodEnd).toString()).not.toBe('Invalid Date');
+    });
+
+    test('calcula scores a partir dos logs fornecidos', () => {
+        const house = makeHouse({ periodStart: new Date(2023, 0, 1).toISOString() });
+        const logs: TaskLog[] = [
+            { id: 'l1', taskId: 't1', memberId: 'u1', completedAt: '2023-01-02T00:00:00.000Z' }, // Alice: 10
+        ];
+        const record = buildPeriodRecord(house, logs);
+        const alice = record.scores.find((s) => s.memberId === 'u1')!;
+        expect(alice.points).toBe(10);
+        expect(alice.completedTasks).toBe(1);
+    });
+
+    test('inclui prize quando definido', () => {
+        const house = makeHouse({ periodStart: new Date(2023, 0, 1).toISOString(), prize: 'Pizza' });
+        const record = buildPeriodRecord(house, []);
+        expect(record.prize).toBe('Pizza');
+    });
+
+    test('não inclui prize quando não definido', () => {
+        const house = makeHouse({ periodStart: new Date(2023, 0, 1).toISOString() });
+        const record = buildPeriodRecord(house, []);
+        expect(record).not.toHaveProperty('prize');
     });
 });

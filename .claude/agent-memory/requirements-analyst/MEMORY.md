@@ -1,0 +1,1 @@
+- [Clean Rats — Project Overview](project_cleanrats.md) — tech stack, domain model, screen inventory, key architectural facts for this pt-BR household chore app

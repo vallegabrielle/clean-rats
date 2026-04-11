@@ -70,6 +70,11 @@ export const styles = StyleSheet.create({
     color: COLORS.text,
     maxWidth: 120,
   },
+  memberRemoveText: {
+    fontFamily: 'Bungee_400Regular',
+    fontSize: 11,
+    color: COLORS.textMuted,
+  },
   options: {
     gap: 8,
   },

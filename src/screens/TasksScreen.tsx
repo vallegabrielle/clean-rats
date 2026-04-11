@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
+import { Text, TouchableOpacity, ScrollView, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -15,11 +15,12 @@ import { showToast } from '../components/Toast';
 
 export default function TasksScreen() {
   const house = useHouseStore(selectActiveHouse);
-  const { addTaskToHouse, removeTaskFromHouse, updateTaskInHouse } = useHouseStore(
+  const { addTaskToHouse, removeTaskFromHouse, updateTaskInHouse, logs } = useHouseStore(
     useShallow((s) => ({
       addTaskToHouse: s.addTaskToHouse,
       removeTaskFromHouse: s.removeTaskFromHouse,
       updateTaskInHouse: s.updateTaskInHouse,
+      logs: s.logs,
     }))
   );
 
@@ -62,9 +63,13 @@ export default function TasksScreen() {
   }
 
   function handleDeletePress(task: Task) {
+    const logCount = logs.filter((l) => l.taskId === task.id).length;
+    const message = logCount > 0
+      ? `Deseja excluir "${task.name}"?\n\nIsso também removerá ${logCount} registro${logCount === 1 ? '' : 's'} dessa tarefa.`
+      : `Deseja excluir "${task.name}"?`;
     Alert.alert(
       'Excluir tarefa',
-      `Deseja excluir "${task.name}"?`,
+      message,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -84,7 +89,7 @@ export default function TasksScreen() {
     setEditingTask({ id: task.id, name: task.name, points: String(task.points) });
   }
 
-  function renderTask(task: Task) {
+  function renderTask(task: Task, i: number) {
     if (editingTask?.id === task.id) {
       return (
         <TaskForm
@@ -103,6 +108,7 @@ export default function TasksScreen() {
         onEdit={openEdit}
         onDelete={handleDeletePress}
         onOpen={handleSwipeOpen}
+        isFirst={i === 0}
       />
     );
   }
@@ -123,6 +129,7 @@ export default function TasksScreen() {
         }
       />
 
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {showAddForm && (
           <TaskForm
@@ -138,6 +145,7 @@ export default function TasksScreen() {
           <EmptyState icon="🧹" text="Nenhuma tarefa cadastrada." style={styles.emptyState} />
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

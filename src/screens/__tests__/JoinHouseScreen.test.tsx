@@ -97,9 +97,9 @@ test('após join com pending, mostra tela "Solicitação enviada!"', async () =>
     const renderer = render();
 
     // Digita um código no input
-    const input = renderer.root.find((node) => node.props.maxLength === 6);
+    const input = renderer.root.find((node) => node.props.maxLength === 8);
     act(() => {
-        input.props.onChangeText('ABC123');
+        input.props.onChangeText('ABC12345');
     });
 
     // Pressiona o botão de join
@@ -116,7 +116,7 @@ test('tela de pending não navega para Home automaticamente', async () => {
     mockJoinByCode.mockResolvedValue({ success: true, pending: true });
     const renderer = render();
 
-    const input = renderer.root.find((node) => node.props.maxLength === 6);
+    const input = renderer.root.find((node) => node.props.maxLength === 8);
     act(() => { input.props.onChangeText('XYZ999'); });
 
     const btn = renderer.root.find((node) => node.props.testID === 'animated-btn');
@@ -130,7 +130,7 @@ test('"Voltar ao início" na tela de pending navega para Home', async () => {
     mockJoinByCode.mockResolvedValue({ success: true, pending: true });
     const renderer = render();
 
-    const input = renderer.root.find((node) => node.props.maxLength === 6);
+    const input = renderer.root.find((node) => node.props.maxLength === 8);
     act(() => { input.props.onChangeText('ABC123'); });
 
     const joinBtn = renderer.root.find((node) => node.props.testID === 'animated-btn');
@@ -151,7 +151,7 @@ test('código inválido exibe mensagem de erro', async () => {
     });
     const renderer = render();
 
-    const input = renderer.root.find((node) => node.props.maxLength === 6);
+    const input = renderer.root.find((node) => node.props.maxLength === 8);
     act(() => { input.props.onChangeText('NOPE00'); });
 
     const btn = renderer.root.find((node) => node.props.testID === 'animated-btn');

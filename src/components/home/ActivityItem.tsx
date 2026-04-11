@@ -1,8 +1,9 @@
-import { useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Swipeable } from 'react-native-gesture-handler';
 import { COLORS } from '../../constants';
-import { formatTime, initials, swipeStyles } from '../../utils';
+import { formatTime, initials, swipeStyles, avatarColor } from '../../utils';
 import { House, TaskLog } from '../../types';
 
 export function DateSeparator({ label }: { label: string }) {
@@ -22,6 +23,7 @@ export function ActivityItem({
   onEdit,
   onDelete,
   onOpen,
+  isFirst,
 }: {
   log: TaskLog;
   house: House;
@@ -29,13 +31,27 @@ export function ActivityItem({
   onEdit: (logId: string) => void;
   onDelete: (logId: string) => void;
   onOpen: (ref: Swipeable) => void;
+  isFirst?: boolean;
 }) {
   const swipeRef = useRef<Swipeable>(null);
+  const hintAnim = useRef(new Animated.Value(0)).current;
   const task = house.tasks.find((t) => t.id === log.taskId);
   const member = house.members.find((m) => m.id === log.memberId);
-  if (!task || !member) return null;
 
   const isOwner = log.memberId === currentUserId;
+
+  useEffect(() => {
+    if (!isFirst || !isOwner) return;
+    const timer = setTimeout(() => {
+      Animated.sequence([
+        Animated.timing(hintAnim, { toValue: -18, duration: 250, useNativeDriver: true }),
+        Animated.timing(hintAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start();
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!task || !member) return null;
 
   function renderRightActions() {
     if (!isOwner) return null;
@@ -44,7 +60,7 @@ export function ActivityItem({
         <TouchableOpacity style={swipeStyles.swipeEdit} onPress={() => onEdit(log.id)}>
           <Text style={swipeStyles.swipeEditText}>✎</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={swipeStyles.swipeDelete} onPress={() => onDelete(log.id)}>
+        <TouchableOpacity style={swipeStyles.swipeDelete} onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); onDelete(log.id); }}>
           <Text style={swipeStyles.swipeDeleteText}>✕</Text>
         </TouchableOpacity>
       </View>
@@ -52,6 +68,7 @@ export function ActivityItem({
   }
 
   return (
+    <Animated.View style={{ transform: [{ translateX: hintAnim }] }}>
     <Swipeable
       ref={swipeRef}
       renderRightActions={renderRightActions}
@@ -60,7 +77,7 @@ export function ActivityItem({
       onSwipeableWillOpen={() => isOwner && swipeRef.current && onOpen(swipeRef.current)}
     >
       <View style={styles.activityItem}>
-        <View style={styles.activityAvatar}>
+        <View style={[styles.activityAvatar, { backgroundColor: avatarColor(member.id) }]}>
           <Text style={styles.activityAvatarText}>{initials(member.name)}</Text>
         </View>
         <View style={styles.activityInfo}>
@@ -75,6 +92,7 @@ export function ActivityItem({
         </View>
       </View>
     </Swipeable>
+    </Animated.View>
   );
 }
 

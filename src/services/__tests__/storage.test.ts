@@ -35,7 +35,6 @@ function makeHouse(id: string, overrides: Partial<House> = {}): House {
         memberIds: ['u1'],
         members: [{ id: 'u1', name: 'Alice' }],
         tasks: [],
-        logs: [],
         createdAt: '2024-01-01T00:00:00.000Z',
         periodStart: '2024-01-01T00:00:00.000Z',
         history: [],

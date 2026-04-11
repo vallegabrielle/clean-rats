@@ -6,6 +6,7 @@ import { useHouseStore, selectActiveHouse } from '../contexts/HouseContext';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { EmptyState } from '../components/EmptyState';
 import { PeriodRecord, PeriodScore } from '../types';
+import { AdBanner } from '../components/AdBanner';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -27,6 +28,9 @@ function PeriodCard({ record, index }: { record: PeriodRecord; index: number }) 
       <View style={styles.cardHeader}>
         <Text style={styles.periodLabel}>Período {index}</Text>
         <Text style={styles.periodDates}>{formatDateRange(record.periodStart, record.periodEnd)}</Text>
+        {!!record.prize && (
+          <Text style={styles.periodPrize}>🏆 {record.prize}</Text>
+        )}
       </View>
 
       {sorted.length === 0 ? (
@@ -51,7 +55,7 @@ function PeriodCard({ record, index }: { record: PeriodRecord; index: number }) 
 export default function HistoryScreen() {
   const house = useHouseStore(selectActiveHouse);
 
-  const history = house ? [...house.history].reverse() : [];
+  const history = house ? [...(house.history ?? [])].reverse() : [];
 
   return (
     <SafeAreaView style={styles.root}>
@@ -59,25 +63,30 @@ export default function HistoryScreen() {
 
       <ScreenHeader title="Histórico" />
 
-      {history.length === 0 ? (
-        <EmptyState
-          icon="🐀"
-          title="Nada por aqui ainda"
-          text={"Cada período fechado vira um capítulo\nda história da toca. O primeiro\nainda está por vir!"}
-        />
-      ) : (
-        <ScrollView contentContainerStyle={styles.list}>
-          {history.map((record, i) => (
-            <PeriodCard key={record.periodStart} record={record} index={history.length - i} />
-          ))}
-        </ScrollView>
-      )}
+      <View style={styles.content}>
+        {history.length === 0 ? (
+          <EmptyState
+            icon="🐀"
+            title="Nada por aqui ainda"
+            text={"Cada período fechado vira um capítulo\nda história da toca. O primeiro\nainda está por vir!"}
+          />
+        ) : (
+          <ScrollView contentContainerStyle={styles.list}>
+            {history.map((record, i) => (
+              <PeriodCard key={record.periodStart} record={record} index={history.length - i} />
+            ))}
+          </ScrollView>
+        )}
+      </View>
+
+      <AdBanner />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
+  content: { flex: 1 },
 
   list: { padding: 20, gap: 12, paddingBottom: 40 },
 
@@ -106,6 +115,12 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSansMono_400Regular',
     fontSize: 13,
     color: COLORS.text,
+  },
+  periodPrize: {
+    fontFamily: 'NotoSansMono_400Regular',
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 2,
   },
 
   row: {

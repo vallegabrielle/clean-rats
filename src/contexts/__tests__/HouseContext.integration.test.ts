@@ -11,15 +11,18 @@ import {
     getDoc,
     updateDoc,
     setDoc,
+    deleteDoc,
     runTransaction,
     onSnapshot,
+    where,
+    writeBatch,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { useHouseStore } from '../HouseContext';
 import { useAuthStore } from '../AuthContext';
 import { loadActiveHouseId } from '../../services/storage';
 import { computeScores } from '../../services/period';
-import { House, JoinRequest } from '../../types';
+import { House, JoinRequest, TaskLog } from '../../types';
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -33,9 +36,16 @@ jest.mock('firebase/firestore', () => ({
     onSnapshot: jest.fn(() => jest.fn()),
     query: jest.fn(() => ({})),
     where: jest.fn(() => ({})),
+    limit: jest.fn(() => ({})),
     getDocs: jest.fn(),
     getDoc: jest.fn(),
     arrayUnion: jest.fn((value) => value),
+    writeBatch: jest.fn(() => ({
+        delete: jest.fn(),
+        set: jest.fn(),
+        commit: jest.fn(() => Promise.resolve()),
+    })),
+    orderBy: jest.fn(() => ({})),
 }));
 
 jest.mock('firebase/functions', () => ({
@@ -79,7 +89,6 @@ function makeHouse(overrides: Partial<House> = {}): House {
         tasks: [
             { id: 'task-1', name: 'Lavar louça', points: 10, isDefault: true },
         ],
-        logs: [],
         createdAt: '2024-01-01T00:00:00.000Z',
         periodStart: new Date().toISOString(), // período atual por padrão → sem reset
         history: [],
@@ -92,7 +101,7 @@ function makeHouse(overrides: Partial<House> = {}): House {
 function makeQuerySnap(houses: House[]) {
     return {
         empty: houses.length === 0,
-        docs: houses.map((h) => ({ data: () => h, id: h.id })),
+        docs: houses.map((h) => ({ ref: {}, data: () => h, id: h.id })),
     };
 }
 
@@ -141,6 +150,8 @@ beforeEach(() => {
         pendingHouses: [],
         activeHouseId: null,
         loadingHouses: false,
+        logs: [],
+        logsLoading: false,
     });
 });
 
@@ -148,19 +159,17 @@ beforeEach(() => {
 
 describe('136 — fluxo completo de join', () => {
     test('request → pendente no Firestore → aprovar → membro no Firestore', async () => {
-        // ── Passo 1: user-2 solicita entrada via Cloud Function ───────────────
+        // ── Passo 1: user-2 solicita entrada diretamente no Firestore ─────────
         (useAuthStore.getState as jest.Mock).mockReturnValue({
             user: { uid: 'user-2', displayName: 'Bob' },
         });
-        const mockCallable = jest.fn(() =>
-            Promise.resolve({ data: { success: true, pending: true } }),
-        );
-        jest.mocked(httpsCallable).mockReturnValue(mockCallable as any);
+        const house = makeHouse({ memberIds: ['owner-1'], pendingMemberIds: [] });
+        jest.mocked(getDocs).mockResolvedValue(makeQuerySnap([house]) as any);
 
-        const joinResult = await useHouseStore.getState().joinHouseByCode('XYZ999');
+        const joinResult = await useHouseStore.getState().joinHouseByCode('XYZ99999');
 
         expect(joinResult).toEqual({ success: true, pending: true });
-        expect(mockCallable).toHaveBeenCalledWith({ code: 'XYZ999' });
+        expect(jest.mocked(where)).toHaveBeenCalledWith('code', '==', 'XYZ99999');
 
         // ── Passo 2: owner aprova ─────────────────────────────────────────────
         jest.clearAllMocks();
@@ -181,7 +190,7 @@ describe('136 — fluxo completo de join', () => {
 
         await useHouseStore.getState().approveJoinRequest('house-1', 'user-2');
 
-        const approvePayload = jest.mocked(updateDoc).mock.calls[0][1] as Record<string, unknown>;
+        const approvePayload = (jest.mocked(updateDoc).mock.calls[0] as unknown as [unknown, Record<string, unknown>])[1];
         // user-2 promovido a membro pleno
         expect(approvePayload.memberIds).toBe('user-2');
         expect((approvePayload.members as { id: string }).id).toBe('user-2');
@@ -198,18 +207,21 @@ describe('137 — fluxo de reset de período', () => {
         const expiredHouse = makeHouse({
             // periodStart muito antigo → checkAndResetPeriod retorna 'reset'
             periodStart: '2020-01-01T00:00:00.000Z',
-            logs: [
-                {
-                    id: 'log-1',
-                    taskId: 'task-1',
-                    memberId: 'owner-1',
-                    completedAt: '2020-01-05T00:00:00.000Z',
-                },
-            ],
             history: [],
         });
 
-        // runTransaction deve executar o callback e delegar tx.update → updateDoc
+        // Mock getDocs to return a log when queried for the subcollection
+        const mockLog: TaskLog = { id: 'log-1', taskId: 'task-1', memberId: 'owner-1', completedAt: '2020-01-05T00:00:00.000Z' };
+        jest.mocked(getDocs).mockResolvedValue({
+            docs: [{ ref: {}, data: () => mockLog, id: mockLog.id }],
+            empty: false,
+        } as any);
+
+        // writeBatch mock
+        const mockBatch = { delete: jest.fn(), set: jest.fn(), commit: jest.fn(() => Promise.resolve()) };
+        jest.mocked(writeBatch).mockReturnValue(mockBatch as any);
+
+        // runTransaction must execute the callback and delegate tx.update → updateDoc
         jest.mocked(runTransaction).mockImplementation(async (_db, fn) => {
             const tx = {
                 get: jest.fn(async () => makeDocSnap(expiredHouse)),
@@ -231,8 +243,11 @@ describe('137 — fluxo de reset de período', () => {
         expect(jest.mocked(updateDoc)).toHaveBeenCalledTimes(1);
         const fields = jest.mocked(updateDoc).mock.calls[0][1] as Partial<House>;
 
-        // Logs zerados
-        expect(fields.logs).toEqual([]);
+        // NO logs field in house doc update (logs live in subcollection)
+        expect(fields).not.toHaveProperty('logs');
+
+        // periodStart updated
+        expect(fields.periodStart).toBeTruthy();
 
         // Período arquivado no history com scores corretos
         expect(fields.history).toHaveLength(1);
@@ -241,11 +256,58 @@ describe('137 — fluxo de reset de período', () => {
         expect(fields.history![0].scores[0].memberId).toBe('owner-1');
         expect(fields.history![0].scores[0].points).toBe(10);
 
-        // Estado local também reflete o reset
+        // Batch delete was called for the log
+        expect(mockBatch.delete).toHaveBeenCalledTimes(1);
+        expect(mockBatch.commit).toHaveBeenCalledTimes(1);
+
+        // Store logs cleared
+        expect(useHouseStore.getState().logs).toEqual([]);
+    });
+
+    test('outro cliente já resetou → transaction é no-op → store usa snapshot result como fallback', async () => {
+        // Snapshot entregue pelo listener: período vencido
+        const expiredHouse = makeHouse({
+            periodStart: '2020-01-01T00:00:00.000Z',
+            history: [],
+        });
+
+        // getDocs returns no logs
+        jest.mocked(getDocs).mockResolvedValue({ docs: [], empty: true } as any);
+
+        const mockBatch = { delete: jest.fn(), commit: jest.fn(() => Promise.resolve()) };
+        jest.mocked(writeBatch).mockReturnValue(mockBatch as any);
+
+        // Mas quando a transaction re-lê, o doc já foi atualizado por outro cliente
+        const alreadyResetHouse = makeHouse({
+            periodStart: new Date().toISOString(), // período atual → 'none'
+            history: [
+                {
+                    periodStart: '2020-01-01T00:00:00.000Z',
+                    periodEnd: new Date().toISOString(),
+                    scores: [],
+                },
+            ],
+        });
+
+        jest.mocked(runTransaction).mockImplementation(async (_db, fn) => {
+            const tx = {
+                get: jest.fn(async () => makeDocSnap(alreadyResetHouse)),
+                update: jest.fn(),
+            };
+            return fn(tx as any);
+        });
+
+        const fireSnapshot = captureMemberSnapshot();
+        useHouseStore.getState().subscribe('owner-1');
+        await fireSnapshot(makeQuerySnap([expiredHouse]));
+
+        // Transaction foi chamada mas tx.update NÃO — período já estava ok no re-read
+        expect(jest.mocked(runTransaction)).toHaveBeenCalledTimes(1);
+        expect(jest.mocked(updateDoc)).not.toHaveBeenCalled();
+
+        // Store deve usar o resultado do snapshot (fallback) — não crash
         const storeHouse = useHouseStore.getState().houses[0];
-        expect(storeHouse.logs).toEqual([]);
-        expect(storeHouse.history).toHaveLength(1);
-        expect(storeHouse.tasks).toHaveLength(1);
+        expect(storeHouse).toBeDefined();
     });
 });
 
@@ -258,25 +320,30 @@ describe('138 — fluxo de tarefa deletada', () => {
                 { id: 'task-1', name: 'A', points: 10, isDefault: true },
                 { id: 'task-2', name: 'B', points: 20, isDefault: true },
             ],
-            logs: [
-                {
-                    id: 'log-1',
-                    taskId: 'task-1',
-                    memberId: 'owner-1',
-                    completedAt: '2024-01-01T00:00:00.000Z',
-                },
-                {
-                    id: 'log-2',
-                    taskId: 'task-2',
-                    memberId: 'owner-1',
-                    completedAt: '2024-01-02T00:00:00.000Z',
-                },
-            ],
         });
-        useHouseStore.setState({ houses: [house], activeHouseId: 'house-1' });
+        const logsInStore: TaskLog[] = [
+            {
+                id: 'log-1',
+                taskId: 'task-1',
+                memberId: 'owner-1',
+                completedAt: '2024-01-01T00:00:00.000Z',
+            },
+            {
+                id: 'log-2',
+                taskId: 'task-2',
+                memberId: 'owner-1',
+                completedAt: '2024-01-02T00:00:00.000Z',
+            },
+        ];
+
+        // writeBatch mock
+        const mockBatch = { delete: jest.fn(), set: jest.fn(), commit: jest.fn(() => Promise.resolve()) };
+        jest.mocked(writeBatch).mockReturnValue(mockBatch as any);
+
+        useHouseStore.setState({ houses: [house], activeHouseId: 'house-1', logs: logsInStore });
 
         // Antes da deleção: 10 + 20 = 30 pts
-        const before = computeScores(useHouseStore.getState().houses[0]);
+        const before = computeScores(useHouseStore.getState().houses[0], useHouseStore.getState().logs);
         expect(before[0].points).toBe(30);
 
         await useHouseStore.getState().removeTaskFromHouse('task-1');
@@ -287,21 +354,22 @@ describe('138 — fluxo de tarefa deletada', () => {
         expect(afterHouse.tasks.find((t) => t.id === 'task-1')).toBeUndefined();
         expect(afterHouse.tasks).toHaveLength(1);
 
-        // Logs órfãos removidos junto
-        expect(afterHouse.logs.find((l) => l.taskId === 'task-1')).toBeUndefined();
-        expect(afterHouse.logs).toHaveLength(1);
+        // Store logs updated — log-1 (task-1) removed
+        const afterLogs = useHouseStore.getState().logs;
+        expect(afterLogs.find((l) => l.taskId === 'task-1')).toBeUndefined();
+        expect(afterLogs).toHaveLength(1);
 
         // Pontuação recalculada: só task-2 → 20 pts
-        const after = computeScores(afterHouse);
+        const after = computeScores(afterHouse, afterLogs);
         expect(after[0].points).toBe(20);
 
-        // Firestore recebeu tasks E logs no mesmo write
-        const firestorePayload = jest.mocked(updateDoc).mock.calls[0][1] as {
-            tasks: unknown[];
-            logs: unknown[];
-        };
+        // Firestore recebeu tasks no house doc write
+        const firestorePayload = (jest.mocked(updateDoc).mock.calls[0] as unknown as [unknown, { tasks: unknown[] }])[1];
         expect(firestorePayload.tasks).toHaveLength(1);
-        expect(firestorePayload.logs).toHaveLength(1);
+
+        // Batch delete called for the orphaned log
+        expect(mockBatch.delete).toHaveBeenCalledTimes(1);
+        expect(mockBatch.commit).toHaveBeenCalledTimes(1);
     });
 });
 
@@ -314,44 +382,38 @@ describe('139 — múltiplas casas', () => {
             id: 'house-2',
             code: 'BBB222',
             tasks: [{ id: 'task-2', name: 'Outra tarefa', points: 50, isDefault: false }],
-            logs: [
-                {
-                    id: 'log-x',
-                    taskId: 'task-2',
-                    memberId: 'owner-1',
-                    completedAt: '2024-01-01T00:00:00.000Z',
-                },
-            ],
         });
 
         useHouseStore.setState({
             houses: [house1, house2],
             activeHouseId: 'house-1',
+            logs: [],
         });
 
         // Operação na casa ativa (house-1)
         await useHouseStore.getState().logTaskInHouse('task-1');
 
-        const h1 = useHouseStore.getState().houses.find((h) => h.id === 'house-1')!;
-        expect(h1.logs).toHaveLength(1);
-        expect(h1.logs[0].taskId).toBe('task-1');
+        // Store logs contain the new log for house-1
+        const logsAfterLog = useHouseStore.getState().logs;
+        expect(logsAfterLog).toHaveLength(1);
+        expect(logsAfterLog[0].taskId).toBe('task-1');
 
-        // house-2 deve estar intacta
-        const h2before = useHouseStore.getState().houses.find((h) => h.id === 'house-2')!;
-        expect(h2before.logs).toHaveLength(1);
-        expect(h2before.logs[0].id).toBe('log-x');
+        // setDoc was called for the log in house-1
+        expect(jest.mocked(setDoc)).toHaveBeenCalledTimes(1);
 
-        // Troca para house-2 e opera nela
+        jest.clearAllMocks();
+
+        // Troca para house-2 e simula logs listener entregando logs da house-2
         await useHouseStore.getState().setActiveHouseId('house-2');
+        // Simulate subscribeToLogs being called by HouseSync — set logs for house-2
+        const logX: TaskLog = { id: 'log-x', taskId: 'task-2', memberId: 'owner-1', completedAt: '2024-01-01T00:00:00.000Z' };
+        useHouseStore.setState({ logs: [logX] });
+
         await useHouseStore.getState().removeLogFromHouse('log-x');
 
-        const h2after = useHouseStore.getState().houses.find((h) => h.id === 'house-2')!;
-        expect(h2after.logs).toHaveLength(0);
-
-        // house-1 não foi afetada pela operação em house-2
-        const h1after = useHouseStore.getState().houses.find((h) => h.id === 'house-1')!;
-        expect(h1after.logs).toHaveLength(1);
-        expect(h1after.logs[0].taskId).toBe('task-1');
+        expect(useHouseStore.getState().logs).toHaveLength(0);
+        // deleteDoc was called for the log in house-2
+        expect(jest.mocked(deleteDoc)).toHaveBeenCalledTimes(1);
     });
 });
 
@@ -365,6 +427,7 @@ describe('140 — ciclo de auth', () => {
             houses: [house],
             activeHouseId: 'house-1',
             loadingHouses: false,
+            logs: [{ id: 'log-1', taskId: 'task-1', memberId: 'owner-1', completedAt: '2024-01-01T00:00:00.000Z' }],
         });
 
         // ── Logout ────────────────────────────────────────────────────────────
@@ -375,10 +438,14 @@ describe('140 — ciclo de auth', () => {
         expect(useHouseStore.getState().pendingHouses).toEqual([]);
         expect(useHouseStore.getState().activeHouseId).toBeNull();
         expect(useHouseStore.getState().loadingHouses).toBe(false);
+        expect(useHouseStore.getState().logs).toEqual([]);
 
         // ── Re-login ──────────────────────────────────────────────────────────
         // Sem activeHouseId salvo → usa a primeira casa
         jest.mocked(loadActiveHouseId).mockResolvedValue(null);
+
+        // getDocs returns empty (no subcollection logs to query during period check)
+        jest.mocked(getDocs).mockResolvedValue({ docs: [], empty: true } as any);
 
         const fireSnapshot = captureMemberSnapshot();
         const unsub = useHouseStore.getState().subscribe('user-1');

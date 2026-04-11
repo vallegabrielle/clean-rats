@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, type ReactElement } from "react";
 import {
     View,
     Text,
@@ -39,7 +39,7 @@ type ImageSlide = {
 type CustomSlide = {
     key: string;
     kind: "custom";
-    visual: () => JSX.Element;
+    visual: () => ReactElement;
     title: string;
     subtitle: string;
 };

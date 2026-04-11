@@ -4,100 +4,70 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /houses/{houseId} {
 
-      function uid()    { return request.auth.uid; }
-      function isAuth() { return request.auth != null; }
-      function d()      { return request.resource.data; }
-      function cur()    { return resource.data; }
+      // ── Helpers ───────────────────────────────────────────────────────────────
 
-      function isMember() {
-        return isAuth() && uid() in cur().memberIds;
+      function isAuth() {
+        return request.auth != null;
       }
 
+      // Full member of this house
+      function isMember() {
+        return isAuth() && request.auth.uid in resource.data.memberIds;
+      }
+
+      // User with a pending join request for this house
       function isPending() {
         return isAuth()
-            && cur().pendingMemberIds != null
-            && uid() in cur().pendingMemberIds;
+          && request.auth.uid in resource.data.get('pendingMemberIds', []);
       }
 
-      // ── Campos imutáveis após criação ─────────────────────────────────────
-      //   Nenhuma operação do cliente pode alterar id, code ou createdAt.
-      function immutableUnchanged() {
-        return d().id        == cur().id
-            && d().code      == cur().code
-            && d().createdAt == cur().createdAt;
+      // Non-member self-enrolling as pending.
+      // Only 'pendingMemberIds' and 'pendingRequests' may change,
+      // no existing entries may be removed, and the caller must be
+      // added to pendingMemberIds.
+      function isAddingSelfToPending() {
+        let changed  = request.resource.data.diff(resource.data).affectedKeys();
+        let uid      = request.auth.uid;
+        let prevPending = resource.data.get('pendingMemberIds', []);
+        let nextPending = request.resource.data.pendingMemberIds;
+        return changed.hasOnly(['pendingMemberIds', 'pendingRequests'])
+          && nextPending.hasAll(prevPending)   // cannot remove anyone
+          && nextPending.hasAny([uid]);         // must add self
       }
 
-      // ── memberIds: somente ±1, em direção válida ──────────────────────────
-      //
-      //   Casos permitidos:
-      //   (a) Sem mudança.
-      //   (b) Shrink de 1: o próprio requester saiu; os demais UID são
-      //       subconjunto dos antigos (ninguém novo adicionado).
-      //   (c) Grow de 1: um UID pendente foi aprovado; todos os membros
-      //       anteriores são preservados; o UID adicionado existia em
-      //       pendingMemberIds (não um UID arbitrário).
-      function memberIdsValid() {
-        let curPending = cur().pendingMemberIds != null
-                         ? cur().pendingMemberIds : [];
-        let allowedSet = cur().memberIds.toSet().union(curPending.toSet());
+      // ── Rules ─────────────────────────────────────────────────────────────────
 
-        return d().memberIds == cur().memberIds
-
-            // saída: reduziu 1, quem saiu foi o próprio requester
-            || (d().memberIds.size() == cur().memberIds.size() - 1
-                && !(uid() in d().memberIds)
-                && cur().memberIds.hasAll(d().memberIds))
-
-            // aprovação: cresceu 1, UID adicionado veio dos pendentes
-            || (d().memberIds.size() == cur().memberIds.size() + 1
-                && d().memberIds.hasAll(cur().memberIds)
-                && d().memberIds.hasOnly(allowedSet));
-      }
-
-      // ── pendingMemberIds: apenas encolhe via cliente ──────────────────────
-      //   Crescimento é feito exclusivamente pela Cloud Function
-      //   joinHouseByCode via Admin SDK (não passa pelas regras).
-      //   Impede também a troca de IDs pendentes (hasAll garante subconjunto).
-      function pendingIdsValid() {
-        let curPending = cur().pendingMemberIds != null
-                         ? cur().pendingMemberIds : [];
-        let newPending = d().pendingMemberIds   != null
-                         ? d().pendingMemberIds : [];
-        return newPending.size() <= curPending.size()
-            && curPending.hasAll(newPending);
-      }
-
-      // ── history: append-only, entradas passadas imutáveis ────────────────
-      //   Evita apagar ou falsificar pontuações de períodos anteriores.
-      function historyValid() {
-        return d().history.size() >= cur().history.size()
-            && d().history.hasAll(cur().history);
-      }
-
-      // ── Read ─────────────────────────────────────────────────────────────
-      allow list: if isMember() || isPending();
-      allow get:  if isMember() || isPending();
-
-      // ── Create ───────────────────────────────────────────────────────────
-      //   Apenas usuário autenticado cria toca onde é o único membro inicial.
+      // CREATE — only the creator, who must include themselves as a member
       allow create: if isAuth()
-                    && uid() in d().memberIds
-                    && d().memberIds.size() == 1
-                    && d().members.size()   == 1
-                    && d().logs.size()      == 0;
+        && request.auth.uid in request.resource.data.memberIds;
 
-      // ── Update ───────────────────────────────────────────────────────────
-      //   Membros plenos podem atualizar name, prize, period, tasks, logs,
-      //   members (rename), periodStart — mas não os campos protegidos acima.
-      allow update: if isMember()
-                    && immutableUnchanged()
-                    && memberIdsValid()
-                    && pendingIdsValid()
-                    && historyValid();
+      // GET — members and pending members only
+      allow get: if isMember() || isPending();
 
-      // ── Delete ───────────────────────────────────────────────────────────
-      //   Apenas membros plenos podem deletar (último membro sai).
+      // LIST — required for:
+      //   • onSnapshot where("memberIds", "array-contains", uid)
+      //   • onSnapshot where("pendingMemberIds", "array-contains", uid)
+      //   • joinHouseByCode  where("code", "==", code)
+      // Enable Firebase App Check to prevent scripted abuse of this endpoint.
+      allow list: if isAuth();
+
+      // UPDATE — members can update freely;
+      //          non-members may only add themselves as pending
+      allow update: if isMember() || (isAuth() && isAddingSelfToPending());
+
+      // DELETE — only a member (last member leaving destroys the house)
       allow delete: if isMember();
+    }
+
+    match /houses/{houseId}/logs/{logId} {
+      function isMemberOfHouse() {
+        return isAuth() && request.auth.uid in get(/databases/$(database)/documents/houses/$(houseId)).data.memberIds;
+      }
+
+      allow read: if isMemberOfHouse();
+      allow create: if isMemberOfHouse() && request.resource.data.memberId == request.auth.uid;
+      allow update: if isMemberOfHouse() && resource.data.memberId == request.auth.uid;
+      allow delete: if isMemberOfHouse() && resource.data.memberId == request.auth.uid;
     }
   }
 }

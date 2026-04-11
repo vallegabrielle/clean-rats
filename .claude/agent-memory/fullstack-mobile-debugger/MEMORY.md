@@ -1,0 +1,1 @@
+- [Period Reset Architecture](project_period_reset_arch.md) — end-to-end reset flow, bugs fixed, timezone handling, PeriodResetBanner origin

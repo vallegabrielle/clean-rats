@@ -4,9 +4,6 @@ import {
     addTask,
     removeTask,
     updateTask,
-    logTask,
-    removeLog,
-    updateLog,
 } from '../house';
 import { DEFAULT_TASKS } from '../../constants';
 import { House } from '../../types';
@@ -22,7 +19,6 @@ function makeHouse(overrides: Partial<House> = {}): House {
         memberIds: ['user-1'],
         members: [{ id: 'user-1', name: 'Alice' }],
         tasks: [{ id: 'task-1', name: 'Lavar louça', points: 10, isDefault: true }],
-        logs: [],
         createdAt: '2024-01-01T00:00:00.000Z',
         periodStart: '2024-01-01T00:00:00.000Z',
         history: [],
@@ -65,11 +61,12 @@ describe('createHouse', () => {
             memberIds: expect.any(Array),
             members: expect.any(Array),
             tasks: expect.any(Array),
-            logs: [],
             createdAt: expect.any(String),
             periodStart: expect.any(String),
             history: [],
         });
+        // logs no longer on House — stored in subcollection
+        expect(house).not.toHaveProperty('logs');
     });
 
     test('dono é members[0] com dados corretos', () => {
@@ -111,11 +108,6 @@ describe('createHouse', () => {
     test('createdAt é ISO válido', () => {
         const house = createHouse('Toca', 'weekly', 'uid-1', 'Alice');
         expect(new Date(house.createdAt).toString()).not.toBe('Invalid Date');
-    });
-
-    test('logs começa vazio', () => {
-        const house = createHouse('Toca', 'weekly', 'uid-1', 'Alice');
-        expect(house.logs).toEqual([]);
     });
 
     test('history começa vazio', () => {
@@ -188,16 +180,6 @@ describe('removeTask', () => {
         expect(result.tasks[0]).toEqual(house.tasks[1]);
     });
 
-    // Comportamento atual: limpeza de logs é responsabilidade do store,
-    // não desta função. Este teste documenta isso explicitamente.
-    test('não remove logs da tarefa deletada (responsabilidade do store)', () => {
-        const house = makeHouse({
-            logs: [{ id: 'log-1', taskId: 'task-1', memberId: 'user-1', completedAt: '2024-01-01T00:00:00.000Z' }],
-        });
-        const result = removeTask(house, 'task-1');
-        expect(result.logs).toHaveLength(1);
-    });
-
     test('retorna novo objeto (imutabilidade)', () => {
         const house = makeHouse();
         expect(removeTask(house, 'task-1')).not.toBe(house);
@@ -229,126 +211,5 @@ describe('updateTask', () => {
 
     test('lança erro quando pontos < 0', () => {
         expect(() => updateTask(makeHouse(), 'task-1', 'Nome', -1)).toThrow('Points must be greater than 0');
-    });
-});
-
-// ─── logTask ────────────────────────────────────────────────────────────────
-
-describe('logTask', () => {
-    test('cria log com taskId e memberId corretos', () => {
-        const result = logTask(makeHouse(), 'task-1', 'user-1');
-        expect(result.logs[0].taskId).toBe('task-1');
-        expect(result.logs[0].memberId).toBe('user-1');
-    });
-
-    test('log tem completedAt como ISO válido', () => {
-        const result = logTask(makeHouse(), 'task-1', 'user-1');
-        expect(new Date(result.logs[0].completedAt).toString()).not.toBe('Invalid Date');
-    });
-
-    test('log tem id gerado', () => {
-        const result = logTask(makeHouse(), 'task-1', 'user-1');
-        expect(result.logs[0].id).toBeTruthy();
-    });
-
-    test('lança erro para taskId inexistente', () => {
-        expect(() => logTask(makeHouse(), 'task-inexistente', 'user-1')).toThrow(
-            'Task task-inexistente not found in house',
-        );
-    });
-
-    test('lança erro para memberId inexistente', () => {
-        expect(() => logTask(makeHouse(), 'task-1', 'user-inexistente')).toThrow(
-            'Member user-inexistente not found in house',
-        );
-    });
-
-    test('adiciona ao array de logs existente sem remover os anteriores', () => {
-        const existing = {
-            id: 'log-existente',
-            taskId: 'task-1',
-            memberId: 'user-1',
-            completedAt: '2024-01-01T00:00:00.000Z',
-        };
-        const house = makeHouse({ logs: [existing] });
-        const result = logTask(house, 'task-1', 'user-1');
-        expect(result.logs).toHaveLength(2);
-        expect(result.logs[0]).toEqual(existing);
-    });
-});
-
-// ─── removeLog ──────────────────────────────────────────────────────────────
-
-describe('removeLog', () => {
-    test('remove o log alvo', () => {
-        const house = makeHouse({
-            logs: [
-                { id: 'log-1', taskId: 'task-1', memberId: 'user-1', completedAt: '2024-01-01T00:00:00.000Z' },
-                { id: 'log-2', taskId: 'task-1', memberId: 'user-1', completedAt: '2024-01-02T00:00:00.000Z' },
-            ],
-        });
-        const result = removeLog(house, 'log-1');
-        expect(result.logs).toHaveLength(1);
-        expect(result.logs[0].id).toBe('log-2');
-    });
-
-    test('não remove outros logs', () => {
-        const log2 = { id: 'log-2', taskId: 'task-1', memberId: 'user-1', completedAt: '2024-01-02T00:00:00.000Z' };
-        const house = makeHouse({
-            logs: [
-                { id: 'log-1', taskId: 'task-1', memberId: 'user-1', completedAt: '2024-01-01T00:00:00.000Z' },
-                log2,
-            ],
-        });
-        expect(removeLog(house, 'log-1').logs[0]).toEqual(log2);
-    });
-
-    test('lista vazia quando não há mais logs', () => {
-        const house = makeHouse({
-            logs: [{ id: 'log-1', taskId: 'task-1', memberId: 'user-1', completedAt: '2024-01-01T00:00:00.000Z' }],
-        });
-        expect(removeLog(house, 'log-1').logs).toEqual([]);
-    });
-});
-
-// ─── updateLog ──────────────────────────────────────────────────────────────
-
-describe('updateLog', () => {
-    const houseWithTwoTasks = () =>
-        makeHouse({
-            tasks: [
-                { id: 'task-1', name: 'A', points: 10, isDefault: true },
-                { id: 'task-2', name: 'B', points: 20, isDefault: true },
-            ],
-            logs: [{ id: 'log-1', taskId: 'task-1', memberId: 'user-1', completedAt: '2024-01-01T00:00:00.000Z' }],
-        });
-
-    test('troca taskId do log alvo', () => {
-        const result = updateLog(houseWithTwoTasks(), 'log-1', 'task-2');
-        expect(result.logs[0].taskId).toBe('task-2');
-    });
-
-    test('não cria novo log', () => {
-        const result = updateLog(houseWithTwoTasks(), 'log-1', 'task-2');
-        expect(result.logs).toHaveLength(1);
-    });
-
-    test('não altera outros logs', () => {
-        const log2 = { id: 'log-2', taskId: 'task-1', memberId: 'user-1', completedAt: '2024-01-02T00:00:00.000Z' };
-        const house = makeHouse({
-            tasks: [
-                { id: 'task-1', name: 'A', points: 10, isDefault: true },
-                { id: 'task-2', name: 'B', points: 20, isDefault: true },
-            ],
-            logs: [
-                { id: 'log-1', taskId: 'task-1', memberId: 'user-1', completedAt: '2024-01-01T00:00:00.000Z' },
-                log2,
-            ],
-        });
-        expect(updateLog(house, 'log-1', 'task-2').logs[1]).toEqual(log2);
-    });
-
-    test('lança erro para taskId inexistente', () => {
-        expect(() => updateLog(houseWithTwoTasks(), 'log-1', 'task-inexistente')).toThrow();
     });
 });

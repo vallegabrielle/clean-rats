@@ -6,7 +6,9 @@ import {
     StyleSheet,
     ActivityIndicator,
     Image,
+    Platform,
 } from "react-native";
+import * as Haptics from 'expo-haptics';
 import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
@@ -16,14 +18,12 @@ import { useAuth } from "../contexts/AuthContext";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const GOOGLE_WEB_CLIENT_ID =
-    "1010162142223-8r80emkn7ti3617ovjid0ld0c95jmsn0.apps.googleusercontent.com";
-const GOOGLE_IOS_CLIENT_ID = "1010162142223-a3n3dn0vmhhto5plek0pli1f6n2pqohv.apps.googleusercontent.com";
-const GOOGLE_ANDROID_CLIENT_ID =
-    "1010162142223-9jafdjdrkg7plbp9hvibla4s50ahltue.apps.googleusercontent.com";
+const GOOGLE_WEB_CLIENT_ID     = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID!;
+const GOOGLE_IOS_CLIENT_ID     = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID!;
+const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID!;
 
 export default function LoginScreen() {
-    const { loginWithGoogle } = useAuth();
+    const { loginWithGoogle, loginWithApple } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
@@ -69,14 +69,39 @@ export default function LoginScreen() {
                 {loading ? (
                     <ActivityIndicator color="#fff" size="large" />
                 ) : (
-                    <TouchableOpacity
-                        style={[styles.googleBtn, !request && styles.googleBtnDisabled]}
-                        onPress={() => { setError(""); promptAsync(); }}
-                        disabled={!request}
-                    >
-                        <AntDesign name="google" size={22} color="#4285F4" />
-                        <Text style={styles.googleBtnText}>Entrar com Google</Text>
-                    </TouchableOpacity>
+                    <>
+                        <TouchableOpacity
+                            style={[styles.googleBtn, !request && styles.googleBtnDisabled]}
+                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setError(""); promptAsync(); }}
+                            disabled={!request}
+                        >
+                            <AntDesign name="google" size={22} color="#4285F4" />
+                            <Text style={styles.googleBtnText}>Entrar com Google</Text>
+                        </TouchableOpacity>
+
+                        {Platform.OS === "ios" && (
+                            <TouchableOpacity
+                                style={styles.googleBtn}
+                                onPress={async () => {
+                                    try {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setError("");
+                                        setLoading(true);
+                                        await loginWithApple();
+                                    } catch (e: any) {
+                                        if (e.code !== "ERR_REQUEST_CANCELED") {
+                                            console.error("[Apple Login] code:", e.code, "message:", e.message, e);
+                                            setError("Erro ao entrar com Apple. Tente novamente.");
+                                        }
+                                        setLoading(false);
+                                    }
+                                }}
+                            >
+                                <AntDesign name="apple" size={22} color="#000" />
+                                <Text style={styles.googleBtnText}>Entrar com Apple</Text>
+                            </TouchableOpacity>
+                        )}
+                    </>
                 )}
             </View>
         </View>

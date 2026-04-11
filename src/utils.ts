@@ -99,6 +99,14 @@ export function sanitizeName(raw: string, maxLength = 50): string {
     .trim();
 }
 
+const AVATAR_COLORS = ['#c0392b', '#2980b9', '#27ae60', '#8e44ad', '#d35400', '#16a085'];
+
+export function avatarColor(userId: string): string {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
 export function initials(name: string): string {
   return name
     .split(' ')

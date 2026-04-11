@@ -1,9 +1,10 @@
 import * as Crypto from 'expo-crypto';
 import { House, Member, Period, Task } from '../types';
+// TaskLog is now stored in the subcollection houses/{houseId}/logs/{logId}
 import { DEFAULT_TASKS, MAX_TASK_POINTS } from '../constants';
 import { getCurrentPeriodStart } from './period';
 
-function generateId(): string {
+export function generateId(): string {
   return Crypto.randomUUID();
 }
 
@@ -34,7 +35,6 @@ export function createHouse(
     memberIds: [ownerId],
     members: [owner],
     tasks,
-    logs: [],
     createdAt: new Date().toISOString(),
     periodStart: getCurrentPeriodStart(period).toISOString(),
     history: [],
@@ -66,28 +66,3 @@ export function updateTask(house: House, taskId: string, name: string, points: n
   };
 }
 
-export function removeLog(house: House, logId: string): House {
-  return { ...house, logs: house.logs.filter((l) => l.id !== logId) };
-}
-
-export function updateLog(house: House, logId: string, taskId: string): House {
-  if (!house.tasks.some((t) => t.id === taskId)) throw new Error(`Task ${taskId} not found in house`);
-  return {
-    ...house,
-    logs: house.logs.map((l) => l.id === logId ? { ...l, taskId } : l),
-  };
-}
-
-export function logTask(house: House, taskId: string, memberId: string): House {
-  const taskExists = house.tasks.some((t) => t.id === taskId);
-  const memberExists = house.members.some((m) => m.id === memberId);
-  if (!taskExists) throw new Error(`Task ${taskId} not found in house`);
-  if (!memberExists) throw new Error(`Member ${memberId} not found in house`);
-  const log = {
-    id: generateId(),
-    taskId,
-    memberId,
-    completedAt: new Date().toISOString(),
-  };
-  return { ...house, logs: [...house.logs, log] };
-}

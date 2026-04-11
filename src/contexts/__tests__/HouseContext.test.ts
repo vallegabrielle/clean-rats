@@ -12,12 +12,14 @@ import {
     updateDoc,
     setDoc,
     deleteDoc,
+    where,
+    writeBatch,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { useHouseStore } from '../HouseContext';
 import { useAuthStore } from '../AuthContext';
 import { saveActiveHouseId } from '../../services/storage';
-import { House, JoinRequest } from '../../types';
+import { House, JoinRequest, TaskLog } from '../../types';
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -31,10 +33,17 @@ jest.mock('firebase/firestore', () => ({
     onSnapshot: jest.fn(() => jest.fn()),
     query: jest.fn(() => ({})),
     where: jest.fn(() => ({})),
+    limit: jest.fn(() => ({})),
     getDocs: jest.fn(),
     getDoc: jest.fn(),
     // Retorna o valor diretamente para simplificar as asserções
     arrayUnion: jest.fn((value) => value),
+    writeBatch: jest.fn(() => ({
+        delete: jest.fn(),
+        set: jest.fn(),
+        commit: jest.fn(() => Promise.resolve()),
+    })),
+    orderBy: jest.fn(() => ({})),
 }));
 
 jest.mock('firebase/functions', () => ({
@@ -78,7 +87,6 @@ function makeHouse(overrides: Partial<House> = {}): House {
         tasks: [
             { id: 'task-1', name: 'Lavar louça', points: 10, isDefault: true },
         ],
-        logs: [],
         createdAt: '2024-01-01T00:00:00.000Z',
         periodStart: '2024-01-01T00:00:00.000Z',
         history: [],
@@ -92,7 +100,7 @@ function makeHouse(overrides: Partial<House> = {}): House {
 function makeQuerySnap(houses: House[]) {
     return {
         empty: houses.length === 0,
-        docs: houses.map((h) => ({ data: () => h, id: h.id })),
+        docs: houses.map((h) => ({ ref: {}, data: () => h, id: h.id })),
     };
 }
 
@@ -129,71 +137,69 @@ beforeEach(() => {
         pendingHouses: [],
         activeHouseId: null,
         loadingHouses: false,
+        logs: [],
+        logsLoading: false,
     });
 });
 
 // ─── joinHouseByCode ──────────────────────────────────────────────────────────
 
-// joinHouseByCode é um wrapper fino em torno da Cloud Function.
-// A lógica de negócio (Firestore, rate limit, validações) reside no servidor.
+// joinHouseByCode busca a toca no Firestore diretamente (sem Cloud Function).
 describe('joinHouseByCode', () => {
-    let mockCallable: jest.Mock;
-
-    beforeEach(() => {
-        mockCallable = jest.fn(() =>
-            Promise.resolve({ data: { success: true, pending: true } }),
-        );
-        jest.mocked(httpsCallable).mockReturnValue(mockCallable as any);
-    });
-
     // 94
     test('código válido retorna { success: true, pending: true }', async () => {
-        const result = await useHouseStore.getState().joinHouseByCode('XYZ999');
+        const house = makeHouse({ memberIds: ['owner-1'], pendingMemberIds: [] });
+        jest.mocked(getDocs).mockResolvedValue(makeQuerySnap([house]) as any);
+
+        const result = await useHouseStore.getState().joinHouseByCode('XYZ12345');
         expect(result).toEqual({ success: true, pending: true });
     });
 
     // 95
-    test('chama Cloud Function com o código normalizado em maiúsculas', async () => {
-        await useHouseStore.getState().joinHouseByCode('xyz999');
-        expect(mockCallable).toHaveBeenCalledWith({ code: 'XYZ999' });
+    test('normaliza o código para maiúsculas antes de buscar', async () => {
+        const house = makeHouse({ memberIds: ['owner-1'], pendingMemberIds: [] });
+        jest.mocked(getDocs).mockResolvedValue(makeQuerySnap([house]) as any);
+
+        await useHouseStore.getState().joinHouseByCode('xyz12345');
+        expect(jest.mocked(where)).toHaveBeenCalledWith('code', '==', 'XYZ12345');
     });
 
     // 96
-    test('propaga resposta de erro da Cloud Function', async () => {
-        mockCallable.mockResolvedValue({
-            data: { success: false, error: 'Código não encontrado.' },
-        });
-        const result = await useHouseStore.getState().joinHouseByCode('NOPE00');
+    test('código não encontrado retorna erro', async () => {
+        jest.mocked(getDocs).mockResolvedValue(makeQuerySnap([]) as any);
+
+        const result = await useHouseStore.getState().joinHouseByCode('NOPE0000');
         expect(result.success).toBe(false);
         expect(result.error).toBeTruthy();
     });
 
     // 97
-    test('código inválido retorna erro', async () => {
-        mockCallable.mockResolvedValue({
-            data: { success: false, error: 'Código não encontrado.' },
-        });
-        const result = await useHouseStore.getState().joinHouseByCode('NOPE00');
+    test('usuário já membro retorna erro', async () => {
+        const house = makeHouse({ memberIds: ['user-1'], pendingMemberIds: [] });
+        jest.mocked(getDocs).mockResolvedValue(makeQuerySnap([house]) as any);
+
+        const result = await useHouseStore.getState().joinHouseByCode('ABC12345');
         expect(result.success).toBe(false);
         expect(result.error).toBeTruthy();
     });
 
     // 98
-    test('usuário já membro retorna erro', async () => {
-        mockCallable.mockResolvedValue({
-            data: { success: false, error: 'Você já faz parte desta toca.' },
-        });
-        const result = await useHouseStore.getState().joinHouseByCode('ABC123');
+    test('usuário já pendente retorna erro', async () => {
+        const house = makeHouse({ memberIds: ['owner-1'], pendingMemberIds: ['user-1'] });
+        jest.mocked(getDocs).mockResolvedValue(makeQuerySnap([house]) as any);
+
+        const result = await useHouseStore.getState().joinHouseByCode('ABC12345');
         expect(result.success).toBe(false);
         expect(result.error).toBeTruthy();
     });
 
     // 99
-    test('usuário já pendente retorna erro', async () => {
-        mockCallable.mockResolvedValue({
-            data: { success: false, error: 'Você já enviou uma solicitação para esta toca.' },
-        });
-        const result = await useHouseStore.getState().joinHouseByCode('ABC123');
+    test('erro de rede retorna { success: false, error }', async () => {
+        jest.mocked(getDocs).mockRejectedValue(
+            Object.assign(new Error('network error'), { code: 'unavailable' }),
+        );
+
+        const result = await useHouseStore.getState().joinHouseByCode('ABC12345');
         expect(result.success).toBe(false);
         expect(result.error).toBeTruthy();
     });
@@ -219,7 +225,7 @@ describe('approveJoinRequest', () => {
     // 100
     test('move userId de pendingMemberIds para memberIds', async () => {
         await useHouseStore.getState().approveJoinRequest('house-1', 'user-2');
-        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as [
+        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as unknown as [
             unknown,
             Record<string, unknown>,
         ];
@@ -232,7 +238,7 @@ describe('approveJoinRequest', () => {
     // 101
     test('remove entrada de pendingRequests', async () => {
         await useHouseStore.getState().approveJoinRequest('house-1', 'user-2');
-        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as [
+        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as unknown as [
             unknown,
             Record<string, unknown>,
         ];
@@ -260,7 +266,7 @@ describe('rejectJoinRequest', () => {
     // 102
     test('remove de pendingRequests sem adicionar a members', async () => {
         await useHouseStore.getState().rejectJoinRequest('house-1', 'user-2');
-        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as [
+        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as unknown as [
             unknown,
             Record<string, unknown>,
         ];
@@ -272,7 +278,7 @@ describe('rejectJoinRequest', () => {
     // 103
     test('remove de pendingMemberIds', async () => {
         await useHouseStore.getState().rejectJoinRequest('house-1', 'user-2');
-        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as [
+        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as unknown as [
             unknown,
             Record<string, unknown>,
         ];
@@ -296,7 +302,7 @@ describe('leaveHouse', () => {
 
         await useHouseStore.getState().leaveHouse('house-1');
 
-        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as [
+        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as unknown as [
             unknown,
             Record<string, unknown>,
         ];
@@ -376,15 +382,14 @@ describe('logTaskInHouse', () => {
         });
         useHouseStore.setState({ houses: [house], activeHouseId: 'house-1' });
 
-        await useHouseStore.getState().logTaskInHouse('task-1', 'user-1');
+        await useHouseStore.getState().logTaskInHouse('task-1');
 
-        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as [
-            unknown,
-            { logs: Array<{ taskId: string; memberId: string }> },
-        ];
-        expect(fields.logs).toHaveLength(1);
-        expect(fields.logs[0].taskId).toBe('task-1');
-        expect(fields.logs[0].memberId).toBe('user-1');
+        // Log is written to subcollection via setDoc (not updateDoc on house)
+        const storeLogs = useHouseStore.getState().logs;
+        expect(storeLogs).toHaveLength(1);
+        expect(storeLogs[0].taskId).toBe('task-1');
+        expect(storeLogs[0].memberId).toBe('user-1');
+        expect(jest.mocked(setDoc)).toHaveBeenCalledTimes(1);
     });
 });
 
@@ -398,6 +403,10 @@ describe('updateLogInHouse', () => {
                 { id: 'task-1', name: 'A', points: 10, isDefault: true },
                 { id: 'task-2', name: 'B', points: 20, isDefault: true },
             ],
+        });
+        useHouseStore.setState({
+            houses: [house],
+            activeHouseId: 'house-1',
             logs: [
                 {
                     id: 'log-1',
@@ -407,16 +416,18 @@ describe('updateLogInHouse', () => {
                 },
             ],
         });
-        useHouseStore.setState({ houses: [house], activeHouseId: 'house-1' });
 
         await useHouseStore.getState().updateLogInHouse('log-1', 'task-2');
 
-        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as [
-            unknown,
-            { logs: Array<{ id: string; taskId: string }> },
-        ];
-        expect(fields.logs).toHaveLength(1);
-        expect(fields.logs[0].taskId).toBe('task-2');
+        // Store log updated
+        expect(useHouseStore.getState().logs).toHaveLength(1);
+        expect(useHouseStore.getState().logs[0].taskId).toBe('task-2');
+
+        // updateDoc called on the log doc in subcollection
+        expect(jest.mocked(updateDoc)).toHaveBeenCalledWith(
+            expect.anything(),
+            { taskId: 'task-2' },
+        );
     });
 });
 
@@ -425,7 +436,10 @@ describe('updateLogInHouse', () => {
 describe('removeLogFromHouse', () => {
     // 110
     test('remove só o log alvo, deixa os outros intactos', async () => {
-        const house = makeHouse({
+        const house = makeHouse();
+        useHouseStore.setState({
+            houses: [house],
+            activeHouseId: 'house-1',
             logs: [
                 {
                     id: 'log-1',
@@ -441,16 +455,12 @@ describe('removeLogFromHouse', () => {
                 },
             ],
         });
-        useHouseStore.setState({ houses: [house], activeHouseId: 'house-1' });
 
         await useHouseStore.getState().removeLogFromHouse('log-1');
 
-        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as [
-            unknown,
-            { logs: Array<{ id: string }> },
-        ];
-        expect(fields.logs).toHaveLength(1);
-        expect(fields.logs[0].id).toBe('log-2');
+        expect(useHouseStore.getState().logs).toHaveLength(1);
+        expect(useHouseStore.getState().logs[0].id).toBe('log-2');
+        expect(jest.mocked(deleteDoc)).toHaveBeenCalledTimes(1);
     });
 });
 
@@ -467,67 +477,62 @@ describe('addTaskAndLogInHouse', () => {
 
         await useHouseStore
             .getState()
-            .addTaskAndLogInHouse('Nova tarefa', 15, 'user-1');
+            .addTaskAndLogInHouse('Nova tarefa', 15);
 
-        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as [
-            unknown,
-            { tasks: Array<{ name: string; points: number }>; logs: unknown[] },
-        ];
-
-        // Tarefa criada com nome e pontos corretos
-        const newTask = fields.tasks.find((t) => t.name === 'Nova tarefa');
+        // Task created in house doc
+        const updatedHouse = useHouseStore.getState().houses[0];
+        const newTask = updatedHouse.tasks.find((t) => t.name === 'Nova tarefa');
         expect(newTask).toBeDefined();
         expect(newTask?.points).toBe(15);
 
-        // Log criado — deve conter ao menos 1 entrada
-        expect(fields.logs.length).toBeGreaterThanOrEqual(1);
+        // Log in store
+        const storeLogs = useHouseStore.getState().logs;
+        expect(storeLogs).toHaveLength(1);
+        expect(storeLogs[0].memberId).toBe('user-1');
     });
 });
 
 // ─── removeTaskFromHouse (limpeza de logs) ────────────────────────────────────
 
 describe('removeTaskFromHouse', () => {
-    /**
-     * Teste 112 — comportamento esperado: ao deletar uma tarefa, todos os logs
-     * dessa tarefa devem ser removidos junto.
-     *
-     * ATENÇÃO: a implementação atual só atualiza `tasks` no Firestore,
-     * deixando os logs órfãos. Este teste FALHA intencionalmente para
-     * documentar a lacuna e motivar a correção no store.
-     */
-    test('deletar tarefa remove todos os logs associados (112)', async () => {
+    // 112
+    test('deletar tarefa remove todos os logs associados da subcollection', async () => {
         const house = makeHouse({
             tasks: [
                 { id: 'task-1', name: 'A', points: 10, isDefault: true },
                 { id: 'task-2', name: 'B', points: 20, isDefault: true },
             ],
-            logs: [
-                {
-                    id: 'log-1',
-                    taskId: 'task-1',
-                    memberId: 'owner-1',
-                    completedAt: '2024-01-01T00:00:00.000Z',
-                },
-                {
-                    id: 'log-2',
-                    taskId: 'task-2',
-                    memberId: 'owner-1',
-                    completedAt: '2024-01-02T00:00:00.000Z',
-                },
-            ],
         });
-        useHouseStore.setState({ houses: [house], activeHouseId: 'house-1' });
+        const logsInStore: TaskLog[] = [
+            {
+                id: 'log-1',
+                taskId: 'task-1',
+                memberId: 'owner-1',
+                completedAt: '2024-01-01T00:00:00.000Z',
+            },
+            {
+                id: 'log-2',
+                taskId: 'task-2',
+                memberId: 'owner-1',
+                completedAt: '2024-01-02T00:00:00.000Z',
+            },
+        ];
+
+        const mockBatch = { delete: jest.fn(), set: jest.fn(), commit: jest.fn(() => Promise.resolve()) };
+        jest.mocked(writeBatch).mockReturnValue(mockBatch as any);
+
+        useHouseStore.setState({ houses: [house], activeHouseId: 'house-1', logs: logsInStore });
 
         await useHouseStore.getState().removeTaskFromHouse('task-1');
 
-        const [, fields] = jest.mocked(updateDoc).mock.calls[0] as [
-            unknown,
-            Record<string, unknown>,
-        ];
+        // Store logs updated — only task-2 log remains
+        const remainingLogs = useHouseStore.getState().logs;
+        expect(remainingLogs).toHaveLength(1);
+        expect(remainingLogs.every((l) => l.taskId !== 'task-1')).toBe(true);
 
-        // Esperado: logs de task-1 devem ser removidos
-        const remainingLogs = fields.logs as Array<{ taskId: string }> | undefined;
-        expect(remainingLogs).toBeDefined();
-        expect(remainingLogs?.every((l) => l.taskId !== 'task-1')).toBe(true);
+        // writeBatch was called to delete the orphaned log
+        expect(jest.mocked(writeBatch)).toHaveBeenCalled();
+        expect(mockBatch.delete).toHaveBeenCalledTimes(1);
+        expect(mockBatch.commit).toHaveBeenCalledTimes(1);
     });
 });

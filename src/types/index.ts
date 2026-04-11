@@ -30,6 +30,7 @@ export interface PeriodRecord {
   periodStart: string; // ISO
   periodEnd: string;   // ISO
   scores: PeriodScore[];
+  prize?: string;
 }
 
 export interface JoinRequest {
@@ -47,7 +48,6 @@ export interface House {
   memberIds: string[]; // Firebase UIDs — used for Firestore queries
   members: Member[];
   tasks: Task[];
-  logs: TaskLog[];
   createdAt: string;
   periodStart: string;           // ISO — início do período atual
   history: PeriodRecord[];       // histórico de períodos anteriores

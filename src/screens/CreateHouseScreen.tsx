@@ -8,12 +8,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, DEFAULT_TASKS, MAX_TASK_POINTS } from '../constants';
+import { ScreenHeader } from '../components/ScreenHeader';
+import { AnimatedButton } from '../components/AnimatedButton';
 import { sanitizeName } from '../utils';
 import { createHouse } from '../services/house';
 import { Period, Task } from '../types';
@@ -123,8 +124,7 @@ export default function CreateHouseScreen() {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Criar Toca</Text>
-        <Text style={styles.subtitle}>Configure a sua república</Text>
+        <ScreenHeader title="Criar Toca" />
 
         <View style={styles.group}>
           <Text style={styles.label}>Nome da toca</Text>
@@ -272,16 +272,14 @@ export default function CreateHouseScreen() {
 
         {!!error && <Text style={styles.error}>{error}</Text>}
 
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
+        <AnimatedButton
+          label="Criar Toca"
           onPress={handleCreate}
+          loading={loading}
           disabled={loading}
-        >
-          {loading
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.buttonText}>Criar Toca</Text>
-          }
-        </TouchableOpacity>
+          style={styles.button}
+          textStyle={styles.buttonText}
+        />
       </ScrollView>
     </KeyboardAvoidingView>
   );
