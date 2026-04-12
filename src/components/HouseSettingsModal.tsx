@@ -53,7 +53,8 @@ export function HouseSettingsModal({
   async function handleShare() {
     if (!house) return;
     await Share.share({
-      message: `Entre na minha toca "${house.name}" no Clean Rats! Código: ${house.code}`,
+      message: `Entre na minha toca "${house.name}" no Clean Rats!\nCódigo: ${house.code}\nBaixe o app: https://apps.apple.com/app/id6761021340`,
+      url: `cleanrats://join/${house.code}`,
     });
   }
 

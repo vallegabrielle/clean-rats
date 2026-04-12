@@ -11,19 +11,21 @@ import {
 
 import { AnimatedButton } from '../components/AnimatedButton';
 import { StatusBar } from 'expo-status-bar';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS } from '../constants';
 import { useHouseStore } from '../contexts/HouseContext';
 import { RootStackParamList } from '../../App';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'JoinHouse'>;
+type RouteType = RouteProp<RootStackParamList, 'JoinHouse'>;
 
 export default function JoinHouseScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<RouteType>();
   const joinHouseByCode = useHouseStore((s) => s.joinHouseByCode);
 
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(route.params?.code ?? '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [pendingHouseName, setPendingHouseName] = useState('');

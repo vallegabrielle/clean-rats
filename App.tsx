@@ -30,10 +30,19 @@ export type RootStackParamList = {
   SetDisplayName: undefined;
   Home: undefined;
   CreateHouse: undefined;
-  JoinHouse: undefined;
+  JoinHouse: { code?: string } | undefined;
   Tasks: undefined;
   History: undefined;
   Members: undefined;
+};
+
+const linking = {
+  prefixes: ['cleanrats://'],
+  config: {
+    screens: {
+      JoinHouse: 'join/:code',
+    },
+  },
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -127,7 +136,7 @@ function AppContent() {
 
   return (
     <OnboardingContext.Provider value={{ resetOnboarding }}>
-      <NavigationContainer>
+      <NavigationContainer linking={linking}>
         <AppNavigator
           onboardingDone={onboardingDone}
           onOnboardingDone={() => setOnboardingDone(true)}
