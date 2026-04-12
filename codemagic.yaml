@@ -1,5 +1,76 @@
 workflows:
 
+  ios-development:
+    name: iOS › Dev Client (development)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      groups:
+        - app_env
+        - app
+      node: v20
+
+    cache:
+      cache_paths:
+        - $HOME/.npm
+        - $CM_BUILD_DIR/node_modules
+        - $HOME/Library/Caches/CocoaPods
+
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+
+      - name: Write GoogleService-Info.plist
+        script: |
+          echo $GOOGLE_SERVICE_INFO_PLIST_BASE64 | base64 --decode \
+            > $CM_BUILD_DIR/GoogleService-Info.plist
+
+      - name: Expo prebuild (development)
+        script: npx expo prebuild --clean --platform ios --no-install
+
+      - name: Copy GoogleService-Info.plist into ios folder
+        script: |
+          cp $CM_BUILD_DIR/GoogleService-Info.plist ios/CleanRats/GoogleService-Info.plist
+
+      - name: Install CocoaPods
+        script: cd ios && pod install
+
+      - name: Set up keychain
+        script: keychain initialize
+
+      - name: Fetch signing files (ad-hoc for internal distribution)
+        script: |
+          app-store-connect fetch-signing-files \
+            com.gdvll.cleanrats \
+            --platform IOS \
+            --type IOS_APP_ADHOC \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --create
+
+      - name: Set up certificates and profiles
+        script: |
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace ios/CleanRats.xcworkspace \
+            --scheme CleanRats
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      email:
+        recipients:
+          - gdvallel@gmail.com
+        notify:
+          success: true
+          failure: true
+
   ios-preview:
     name: iOS › TestFlight (preview)
     max_build_duration: 60
