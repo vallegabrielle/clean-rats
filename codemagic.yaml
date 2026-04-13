@@ -55,29 +55,12 @@ workflows:
           keychain add-certificates
           xcode-project use-profiles
 
-      - name: Write exportOptions.plist
-        script: |
-          cat > /tmp/exportOptions.plist << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>ad-hoc</string>
-            <key>teamID</key>
-            <string>A7Y6A5AT34</string>
-            <key>compileBitcode</key>
-            <false/>
-          </dict>
-          </plist>
-          EOF
-
       - name: Build IPA
         script: |
           xcode-project build-ipa \
             --workspace ios/CleanRats.xcworkspace \
             --scheme CleanRats \
-            --export-options-plist /tmp/exportOptions.plist
+            --xcargs "-destination 'generic/platform=iOS'"
 
     artifacts:
       - build/ios/ipa/*.ipa
