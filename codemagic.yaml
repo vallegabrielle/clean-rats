@@ -60,7 +60,7 @@ workflows:
           xcode-project build-ipa \
             --workspace ios/CleanRats.xcworkspace \
             --scheme CleanRats \
-            --xcargs "-destination 'generic/platform=iOS'"
+            --archive-xcargs "-destination 'generic/platform=iOS'"
 
     artifacts:
       - build/ios/ipa/*.ipa
