@@ -24,6 +24,10 @@ jest.mock('../../contexts/HouseContext', () => ({
         s?.houses?.find((h: any) => h.id === s.activeHouseId) ?? null,
 }));
 
+jest.mock('../../contexts/AuthContext', () => ({
+    useAuth: jest.fn(() => ({ user: { uid: 'user-1', displayName: 'Alice' } })),
+}));
+
 // Sub-componentes de settings — irrelevantes para estes testes
 jest.mock('../house-settings/RenameOption', () => ({
     RenameOption: () => null,
@@ -75,10 +79,12 @@ function setupStore(h: typeof house | null = house) {
     const state = {
         houses: h ? [h] : [],
         activeHouseId: h ? h.id : null,
+        logs: [],
         leaveHouse: mockLeaveHouse,
         renameHouse: jest.fn(),
         updateHousePrize: jest.fn(),
         updateHousePeriod: jest.fn(),
+        removeMemberFromHouse: jest.fn(),
         seedMockData: jest.fn(),
         approveJoinRequest: jest.fn(),
         rejectJoinRequest: jest.fn(),

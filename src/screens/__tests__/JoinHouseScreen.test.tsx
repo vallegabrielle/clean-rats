@@ -16,6 +16,7 @@ jest.mock('expo-status-bar', () => ({ StatusBar: () => null }));
 
 jest.mock('@react-navigation/native', () => ({
     useNavigation: jest.fn(() => ({ navigate: jest.fn(), goBack: jest.fn() })),
+    useRoute: jest.fn(() => ({ params: {} })),
 }));
 
 jest.mock('../../contexts/HouseContext', () => ({

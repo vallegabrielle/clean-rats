@@ -46,6 +46,7 @@ jest.mock('firebase/firestore', () => ({
         commit: jest.fn(() => Promise.resolve()),
     })),
     orderBy: jest.fn(() => ({})),
+    serverTimestamp: jest.fn(() => ({})),
 }));
 
 jest.mock('firebase/functions', () => ({

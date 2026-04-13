@@ -28,6 +28,21 @@ jest.mock('../../contexts/AuthContext', () => ({
     useAuth: jest.fn(),
 }));
 
+jest.mock('react-native-google-mobile-ads', () => ({
+    InterstitialAd: {
+        createForAdRequest: jest.fn(() => ({
+            addAdEventListener: jest.fn(() => jest.fn()),
+            load: jest.fn(),
+            show: jest.fn(),
+        })),
+    },
+    AdEventType: { LOADED: 'loaded', CLOSED: 'closed', ERROR: 'error' },
+    TestIds: {
+        INTERSTITIAL: 'ca-app-pub-3940256099942544/1033173712',
+        ADAPTIVE_BANNER: 'ca-app-pub-3940256099942544/2934735716',
+    },
+}));
+
 jest.mock('../Toast', () => ({
     showToast: jest.fn(),
 }));
@@ -79,6 +94,7 @@ function setupStore() {
     const state = {
         houses: [house],
         activeHouseId: 'house-1',
+        logs: house.logs,
         logTaskInHouse: mockLogTask,
         updateLogInHouse: mockUpdateLog,
         addTaskAndLogInHouse: mockAddTaskAndLog,
@@ -135,7 +151,7 @@ test('selecionar tarefa chama logTaskInHouse no modo log', async () => {
 
     await act(async () => { taskBtn!.props.onPress(); });
 
-    expect(mockLogTask).toHaveBeenCalledWith('task-1');
+    expect(mockLogTask).toHaveBeenCalledWith('task-1', expect.any(String));
     expect(mockUpdateLog).not.toHaveBeenCalled();
 });
 
@@ -210,5 +226,5 @@ test('submit de tarefa personalizada chama addTaskAndLogInHouse', async () => {
 
     await act(async () => { registrarBtn!.props.onPress(); });
 
-    expect(mockAddTaskAndLog).toHaveBeenCalledWith('Passar pano', 5);
+    expect(mockAddTaskAndLog).toHaveBeenCalledWith('Passar pano', 5, expect.any(String));
 });

@@ -67,6 +67,10 @@ jest.mock('../../components/LogActivityModal', () => ({
     LogActivityModal: () => null,
 }));
 
+jest.mock('../../components/AdBanner', () => ({
+    AdBanner: () => null,
+}));
+
 jest.mock('../../components/EmptyState', () => ({
     EmptyState: ({ text }: any) =>
         require('react').createElement(require('react-native').Text, null, text),
@@ -140,6 +144,7 @@ function setupStore(house: House | null, logs: TaskLog[] = []) {
 // ─── Setup ───────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
+    jest.useFakeTimers();
     jest.clearAllMocks();
     jest.mocked(computeScores).mockReturnValue([]);
     jest.mocked(useNavigation).mockReturnValue({
@@ -149,6 +154,10 @@ beforeEach(() => {
     jest.mocked(useAuth).mockReturnValue({
         user: { uid: 'user-1', displayName: 'Alice' },
     } as any);
+});
+
+afterEach(() => {
+    jest.useRealTimers();
 });
 
 function render(house: House | null = makeHouse(), logs: TaskLog[] = []): ReactTestRenderer {

@@ -23,6 +23,10 @@ jest.mock('../../contexts/HouseContext', () => ({
         state?.houses?.find((h: any) => h.id === state.activeHouseId) ?? null,
 }));
 
+jest.mock('../../components/AdBanner', () => ({
+    AdBanner: () => null,
+}));
+
 jest.mock('../../components/ScreenHeader', () => ({
     ScreenHeader: () => null,
 }));

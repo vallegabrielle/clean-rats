@@ -92,6 +92,7 @@ const mockState = {
     ],
     activeHouseId: 'house-1',
     loadingHouses: false,
+    logs: [],
     removeTaskFromHouse: mockRemoveTask,
     updateTaskInHouse: mockUpdateTask,
     addTaskToHouse: mockAddTask,
@@ -100,10 +101,15 @@ const mockState = {
 // ─── Setup ───────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
+    jest.useFakeTimers();
     jest.clearAllMocks();
     jest.mocked(useHouseStore).mockImplementation((selector: any) =>
         selector ? selector(mockState) : mockState,
     );
+});
+
+afterEach(() => {
+    jest.useRealTimers();
 });
 
 function render(): ReactTestRenderer {

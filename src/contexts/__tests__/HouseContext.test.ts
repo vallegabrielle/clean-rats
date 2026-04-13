@@ -44,6 +44,7 @@ jest.mock('firebase/firestore', () => ({
         commit: jest.fn(() => Promise.resolve()),
     })),
     orderBy: jest.fn(() => ({})),
+    serverTimestamp: jest.fn(() => ({})),
 }));
 
 jest.mock('firebase/functions', () => ({
@@ -214,6 +215,7 @@ describe('approveJoinRequest', () => {
         requestedAt: '2024-01-10T00:00:00.000Z',
     };
     const house = makeHouse({
+        memberIds: ['owner-1', 'user-1'],
         pendingRequests: [pendingRequest],
         pendingMemberIds: ['user-2'],
     });
@@ -255,6 +257,7 @@ describe('rejectJoinRequest', () => {
         requestedAt: '2024-01-10T00:00:00.000Z',
     };
     const house = makeHouse({
+        memberIds: ['owner-1', 'user-1'],
         pendingRequests: [pendingRequest],
         pendingMemberIds: ['user-2'],
     });
