@@ -692,6 +692,10 @@ export const useHouseStore = create<HouseState>()((set, get) => {
                 const snapshot = await getDoc(houseRef);
                 if (!snapshot.exists()) return;
                 const data = snapshot.data() as House;
+                const currentUser = useAuthStore.getState().user;
+                if (!currentUser || !(data.memberIds ?? []).includes(currentUser.uid)) {
+                    throw new Error("Não autorizado.");
+                }
                 await updateDoc(houseRef, {
                     memberIds: (data.memberIds ?? []).filter((uid) => uid !== memberId),
                     members: data.members.filter((m) => m.id !== memberId),

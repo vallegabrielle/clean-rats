@@ -64,6 +64,17 @@ service cloud.firestore {
       allow delete: if isMember();
     }
 
+    match /users/{userId} {
+      // Only the owner can write their own push token document.
+      // read: if false — tokens are only read server-side by Cloud Functions (Admin SDK bypasses rules).
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['pushToken', 'updatedAt'])
+        && request.resource.data.pushToken is string;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+      allow read: if false;
+    }
+
     match /houses/{houseId}/logs/{logId} {
       function isMemberOfHouse() {
         return isAuth() && request.auth.uid in get(/databases/$(database)/documents/houses/$(houseId)).data.memberIds;

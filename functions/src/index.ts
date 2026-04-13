@@ -84,8 +84,37 @@ async function sendExpoPush(messages: PushMessage[]): Promise<void> {
                 },
             },
             (res) => {
-                res.resume();
-                res.on("end", resolve);
+                let body = "";
+                res.on("data", (chunk: string) => { body += chunk; });
+                res.on("end", async () => {
+                    try {
+                        const result = JSON.parse(body) as {
+                            data: Array<{ status: string; details?: { error?: string } }>;
+                        };
+                        const staleTokens = messages
+                            .filter((_, i) => {
+                                const err = result.data?.[i]?.details?.error;
+                                return err === "DeviceNotRegistered" || err === "InvalidCredentials";
+                            })
+                            .map((m) => m.to);
+                        if (staleTokens.length > 0) {
+                            const usersSnap = await db
+                                .collection("users")
+                                .where("pushToken", "in", staleTokens.slice(0, 10))
+                                .get();
+                            const batch = db.batch();
+                            for (const userDoc of usersSnap.docs) {
+                                batch.update(userDoc.ref, {
+                                    pushToken: admin.firestore.FieldValue.delete(),
+                                });
+                            }
+                            await batch.commit();
+                        }
+                    } catch {
+                        // Não bloqueia: push foi enviado, limpeza é best-effort
+                    }
+                    resolve();
+                });
             },
         );
         req.on("error", reject);

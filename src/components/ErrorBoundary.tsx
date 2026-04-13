@@ -8,8 +8,8 @@ type State = { hasError: boolean; message: string };
 export class ErrorBoundary extends Component<Props, State> {
     state: State = { hasError: false, message: "" };
 
-    static getDerivedStateFromError(error: Error): State {
-        return { hasError: true, message: error.message };
+    static getDerivedStateFromError(): State {
+        return { hasError: true, message: "Ocorreu um erro inesperado." };
     }
 
     componentDidCatch(error: Error) {

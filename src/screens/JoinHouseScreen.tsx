@@ -44,7 +44,7 @@ export default function JoinHouseScreen() {
         setError(result.error ?? 'Erro ao entrar na toca.');
       }
     } catch (e) {
-      console.error('[JoinHouse]', e);
+      console.error('[JoinHouse]', (e as any)?.code ?? (e as any)?.message);
       setError('Erro ao entrar na toca. Tente novamente.');
     } finally {
       setLoading(false);

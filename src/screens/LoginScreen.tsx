@@ -21,6 +21,7 @@ WebBrowser.maybeCompleteAuthSession();
 const GOOGLE_WEB_CLIENT_ID     = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID!;
 const GOOGLE_IOS_CLIENT_ID     = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID!;
 const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID!;
+const GOOGLE_REDIRECT_URI      = process.env.EXPO_PUBLIC_GOOGLE_REDIRECT_URI!;
 
 export default function LoginScreen() {
     const { loginWithGoogle, loginWithApple } = useAuth();
@@ -31,7 +32,7 @@ export default function LoginScreen() {
         webClientId: GOOGLE_WEB_CLIENT_ID,
         iosClientId: GOOGLE_IOS_CLIENT_ID,
         androidClientId: GOOGLE_ANDROID_CLIENT_ID,
-        redirectUri: 'com.googleusercontent.apps.1010162142223-a3n3dn0vmhhto5plek0pli1f6n2pqohv:/oauth2redirect',
+        redirectUri: GOOGLE_REDIRECT_URI,
     });
 
     useEffect(() => {
