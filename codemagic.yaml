@@ -107,6 +107,9 @@ workflows:
         script: |
           cp $CM_BUILD_DIR/GoogleService-Info.plist ios/CleanRats/GoogleService-Info.plist
 
+      - name: Set build number
+        script: cd ios && agvtool new-version -all $BUILD_NUMBER
+
       - name: Install CocoaPods
         script: cd ios && pod install
 
@@ -178,6 +181,9 @@ workflows:
       - name: Copy GoogleService-Info.plist into ios folder
         script: |
           cp $CM_BUILD_DIR/GoogleService-Info.plist ios/CleanRats/GoogleService-Info.plist
+
+      - name: Set build number
+        script: cd ios && agvtool new-version -all $BUILD_NUMBER
 
       - name: Install CocoaPods
         script: cd ios && pod install
