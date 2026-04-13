@@ -92,10 +92,23 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     },
 }));
 
+// Safety timeout: if onAuthStateChanged hasn't fired in 10s, unblock loading.
+// Guards against any future firebase.ts init failure that silently prevents the callback.
+const authTimeout = setTimeout(() => {
+    if (useAuthStore.getState().loading) {
+        console.error('[Auth] onAuthStateChanged timeout — unblocking loading');
+        useAuthStore.setState({ user: null, loading: false });
+    }
+}, 10_000);
+
 onAuthStateChanged(
     auth,
-    (u) => useAuthStore.setState({ user: u, loading: false }),
+    (u) => {
+        clearTimeout(authTimeout);
+        useAuthStore.setState({ user: u, loading: false });
+    },
     (error) => {
+        clearTimeout(authTimeout);
         console.error('[Auth] onAuthStateChanged error:', (error as any)?.code ?? (error as any)?.message);
         useAuthStore.setState({ user: null, loading: false });
     }
