@@ -2,7 +2,7 @@ workflows:
 
   ios-development:
     name: iOS › Dev Client (development)
-    max_build_duration: 60
+    max_build_duration: 90
     instance_type: mac_mini_m2
 
     environment:
@@ -10,12 +10,11 @@ workflows:
         - app_env
         - app
       node: v20
-      xcode: 16
+      xcode: 16.1
 
     cache:
       cache_paths:
         - $HOME/.npm
-        - $CM_BUILD_DIR/node_modules
         - $HOME/Library/Caches/CocoaPods
 
     scripts:
@@ -47,6 +46,8 @@ workflows:
             --platform IOS \
             --type IOS_APP_ADHOC \
             --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --key-id=$APP_STORE_CONNECT_KEY_IDENTIFIER \
+            --issuer-id=$APP_STORE_CONNECT_ISSUER_ID \
             --create
 
       - name: Set up certificates and profiles
@@ -74,7 +75,7 @@ workflows:
 
   ios-preview:
     name: iOS › TestFlight (preview)
-    max_build_duration: 60
+    max_build_duration: 90
     instance_type: mac_mini_m2
 
     environment:
@@ -82,12 +83,11 @@ workflows:
         - app_env
         - app
       node: v20
-      xcode: 16
+      xcode: 16.1
 
     cache:
       cache_paths:
         - $HOME/.npm
-        - $CM_BUILD_DIR/node_modules
         - $HOME/Library/Caches/CocoaPods
 
     scripts:
@@ -119,6 +119,8 @@ workflows:
             --platform IOS \
             --type IOS_APP_STORE \
             --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --key-id=$APP_STORE_CONNECT_KEY_IDENTIFIER \
+            --issuer-id=$APP_STORE_CONNECT_ISSUER_ID \
             --create
 
       - name: Set up certificates and profiles
@@ -145,7 +147,7 @@ workflows:
 
   ios-production:
     name: iOS › App Store (production)
-    max_build_duration: 60
+    max_build_duration: 90
     instance_type: mac_mini_m2
 
     environment:
@@ -153,12 +155,11 @@ workflows:
         - app_env
         - app
       node: v20
-      xcode: 16
+      xcode: 16.1
 
     cache:
       cache_paths:
         - $HOME/.npm
-        - $CM_BUILD_DIR/node_modules
         - $HOME/Library/Caches/CocoaPods
 
     scripts:
@@ -190,6 +191,8 @@ workflows:
             --platform IOS \
             --type IOS_APP_STORE \
             --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --key-id=$APP_STORE_CONNECT_KEY_IDENTIFIER \
+            --issuer-id=$APP_STORE_CONNECT_ISSUER_ID \
             --create
 
       - name: Set up certificates and profiles
@@ -212,5 +215,4 @@ workflows:
         api_key: $APP_STORE_CONNECT_PRIVATE_KEY
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        submit_to_testflight: true
         submit_to_app_store: true
