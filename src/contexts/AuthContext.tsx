@@ -96,7 +96,7 @@ onAuthStateChanged(
     auth,
     (u) => useAuthStore.setState({ user: u, loading: false }),
     (error) => {
-        console.error('[Auth] onAuthStateChanged error:', error);
+        console.error('[Auth] onAuthStateChanged error:', (error as any)?.code ?? (error as any)?.message);
         useAuthStore.setState({ user: null, loading: false });
     }
 );

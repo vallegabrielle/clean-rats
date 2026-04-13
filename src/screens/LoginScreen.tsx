@@ -90,7 +90,7 @@ export default function LoginScreen() {
                                         await loginWithApple();
                                     } catch (e: any) {
                                         if (e.code !== "ERR_REQUEST_CANCELED") {
-                                            console.error("[Apple Login] code:", e.code, "message:", e.message, e);
+                                            console.error("[Apple Login] code:", e.code, "message:", e.message);
                                             setError("Erro ao entrar com Apple. Tente novamente.");
                                         }
                                         setLoading(false);

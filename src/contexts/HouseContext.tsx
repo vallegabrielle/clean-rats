@@ -17,6 +17,7 @@ import {
     limit,
     writeBatch,
     orderBy,
+    serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { House, Member, MemberScore, Period, TaskLog } from "../types";
@@ -313,7 +314,7 @@ export const useHouseStore = create<HouseState>()((set, get) => {
                     } catch (e) {
                         console.error(
                             "[onSnapshot] error processing houses:",
-                            e,
+                            (e as any)?.code ?? (e as any)?.message,
                         );
                         set({ loadingHouses: false });
                     }
@@ -419,7 +420,7 @@ export const useHouseStore = create<HouseState>()((set, get) => {
 
                 return { success: true, pending: true };
             } catch (e: any) {
-                console.error("[joinHouseByCode]", e);
+                console.error("[joinHouseByCode]", e?.code ?? e?.message);
                 const offline =
                     e?.code === "unavailable" ||
                     e?.message?.toLowerCase().includes("offline") ||
@@ -438,6 +439,11 @@ export const useHouseStore = create<HouseState>()((set, get) => {
             const snap = await getDoc(houseRef);
             if (!snap.exists()) return;
             const house = snap.data() as House;
+
+            const currentUser = useAuthStore.getState().user;
+            if (!currentUser || !(house.memberIds ?? []).includes(currentUser.uid)) {
+                throw new Error("Não autorizado.");
+            }
 
             const request = (house.pendingRequests ?? []).find(
                 (r) => r.userId === requestUserId,
@@ -465,6 +471,11 @@ export const useHouseStore = create<HouseState>()((set, get) => {
             const snap = await getDoc(houseRef);
             if (!snap.exists()) return;
             const house = snap.data() as House;
+
+            const currentUser = useAuthStore.getState().user;
+            if (!currentUser || !(house.memberIds ?? []).includes(currentUser.uid)) {
+                throw new Error("Não autorizado.");
+            }
 
             await updateDoc(houseRef, {
                 pendingRequests: (house.pendingRequests ?? []).filter(
@@ -531,7 +542,7 @@ export const useHouseStore = create<HouseState>()((set, get) => {
 
             set((s) => ({ logs: [log, ...s.logs] }));
             try {
-                await setDoc(doc(db, 'houses', h.id, 'logs', log.id), log);
+                await setDoc(doc(db, 'houses', h.id, 'logs', log.id), { ...log, createdAt: serverTimestamp() });
             } catch (e: any) {
                 set((s) => ({ logs: s.logs.filter((l) => l.id !== log.id) }));
                 const offline = e?.code === 'unavailable' || e?.message?.toLowerCase().includes('offline') || e?.message?.toLowerCase().includes('network');
@@ -639,7 +650,7 @@ export const useHouseStore = create<HouseState>()((set, get) => {
             };
             set((s) => ({ logs: [log, ...s.logs] }));
             try {
-                await setDoc(doc(db, 'houses', h.id, 'logs', log.id), log);
+                await setDoc(doc(db, 'houses', h.id, 'logs', log.id), { ...log, createdAt: serverTimestamp() });
             } catch (e: any) {
                 set((s) => ({ logs: s.logs.filter((l) => l.id !== log.id) }));
                 showToast('Erro ao salvar. Tente novamente.');
@@ -667,7 +678,7 @@ export const useHouseStore = create<HouseState>()((set, get) => {
                     });
                 }
             } catch (e: any) {
-                console.error("[leaveHouse] error:", e);
+                console.error("[leaveHouse] error:", e?.code ?? e?.message);
                 const offline = e?.code === "unavailable" || e?.message?.toLowerCase().includes("offline");
                 throw new Error(offline ? "Sem conexão. Não foi possível sair da toca." : "Erro ao sair da toca. Tente novamente.");
             }
@@ -686,7 +697,7 @@ export const useHouseStore = create<HouseState>()((set, get) => {
                     members: data.members.filter((m) => m.id !== memberId),
                 });
             } catch (e: any) {
-                console.error("[removeMemberFromHouse] error:", e);
+                console.error("[removeMemberFromHouse] error:", e?.code ?? e?.message);
                 const offline = e?.code === "unavailable" || e?.message?.toLowerCase().includes("offline");
                 throw new Error(offline ? "Sem conexão. Tente novamente." : "Erro ao remover membro. Tente novamente.");
             }

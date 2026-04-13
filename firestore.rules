@@ -48,7 +48,12 @@ service cloud.firestore {
       //   • onSnapshot where("memberIds", "array-contains", uid)
       //   • onSnapshot where("pendingMemberIds", "array-contains", uid)
       //   • joinHouseByCode  where("code", "==", code)
-      // Enable Firebase App Check to prevent scripted abuse of this endpoint.
+      //
+      // App Check: once enforcement is active in Firebase Console → App Check →
+      // Cloud Firestore → Enforce, replace the rule below with:
+      //   allow list: if isAuth() && request.app != null;
+      // WARNING: deploying that rule before enforcement is enabled breaks all
+      // list queries (request.app is null when enforcement is off).
       allow list: if isAuth();
 
       // UPDATE — members can update freely;
@@ -65,7 +70,11 @@ service cloud.firestore {
       }
 
       allow read: if isMemberOfHouse();
-      allow create: if isMemberOfHouse() && request.resource.data.memberId == request.auth.uid;
+      allow create: if isMemberOfHouse()
+        && request.resource.data.memberId == request.auth.uid
+        && request.resource.data.keys().hasAll(['id', 'taskId', 'memberId', 'completedAt'])
+        && request.resource.data.taskId is string
+        && request.resource.data.completedAt is string;
       allow update: if isMemberOfHouse() && resource.data.memberId == request.auth.uid;
       allow delete: if isMemberOfHouse() && resource.data.memberId == request.auth.uid;
     }

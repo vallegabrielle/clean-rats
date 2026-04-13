@@ -25,6 +25,7 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*debug.log
 
 # macOS
 .DS_Store
@@ -43,6 +44,11 @@ GoogleService-Info.plist
 *.ipa
 *.apk
 *.aab
+
+# Claude Code local state (agent memory, local permissions, plans are machine-specific)
+.claude/agent-memory/
+.claude/settings.local.json
+.claude/plans/
 
 # typescript
 *.tsbuildinfo
