@@ -91,8 +91,13 @@ export default function HomeScreen() {
   const scores = house ? computeScores(house, logs) : [];
   const myMember = house?.members.find((m) => m.id === user?.uid) ?? null;
   const myScore = scores.find((s) => s.member.id === myMember?.id) ?? null;
-  const leader = scores[0] ?? null;
-  const myRank = myMember ? scores.findIndex((s) => s.member.id === myMember.id) + 1 : 0;
+  const topPoints = scores[0]?.points ?? 0;
+  const leaders = scores.filter((s) => s.points === topPoints && topPoints > 0);
+  const leader = leaders.length === 1 ? leaders[0] : null;
+  const isTied = leaders.length > 1;
+  const myRank = myMember
+    ? scores.filter((s) => s.points > (myScore?.points ?? 0)).length + 1
+    : 0;
   const rankLabel = ({ 1: '🥇', 2: '🥈', 3: '🥉' } as Record<number, string>)[myRank] ?? `#${myRank}`;
 
   return (
@@ -196,6 +201,13 @@ export default function HomeScreen() {
                   </View>
                 ) : (
                   <>
+                    {isTied && (
+                      <View style={[styles.scoreCard, styles.scoreCardLeader]}>
+                        <Text style={styles.scoreCardLabel}>🏆 Empate!</Text>
+                        <Text style={styles.scoreCardValue}>{topPoints} pts</Text>
+                        <Text style={styles.scoreCardSub}>{leaders.map((l) => l.member.name).join(' & ')}</Text>
+                      </View>
+                    )}
                     {leader && leader.member.id !== myMember?.id && (
                       <View style={[styles.scoreCard, styles.scoreCardLeader]}>
                         <Text style={styles.scoreCardLabel}>🏆 Líder</Text>
@@ -213,7 +225,7 @@ export default function HomeScreen() {
                       <View style={[styles.scoreCard, styles.scoreCardLeader]}>
                         <Text style={styles.scoreCardLabel}>🏆 Você lidera!</Text>
                         <Text style={styles.scoreCardValue}>{leader.points} pts</Text>
-                        <Text style={styles.scoreCardSub}>à frente de {scores[1].member.name}</Text>
+                        <Text style={styles.scoreCardSub}>à frente de {scores.find((s) => s.points < leader.points)?.member.name}</Text>
                       </View>
                     )}
                   </>

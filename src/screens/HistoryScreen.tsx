@@ -36,17 +36,21 @@ function PeriodCard({ record, index }: { record: PeriodRecord; index: number }) 
       {sorted.length === 0 ? (
         <Text style={styles.emptyText}>Nenhum registro</Text>
       ) : (
-        sorted.map((score: PeriodScore, i: number) => (
-          <View key={score.memberId} style={styles.row}>
-            <Text style={styles.medal}>{MEDALS[i] ?? `${i + 1}.`}</Text>
-            <Text style={styles.memberName} numberOfLines={1}>{score.memberName}</Text>
-            <View style={styles.pointsBadge}>
-              <Text style={styles.pointsValue}>{score.points}</Text>
-              <Text style={styles.pointsLabel}>pts</Text>
+        sorted.map((score: PeriodScore, i: number) => {
+          const rank = sorted.filter((s) => s.points > score.points).length;
+          const medal = MEDALS[rank] ?? `${rank + 1}.`;
+          return (
+            <View key={score.memberId} style={styles.row}>
+              <Text style={styles.medal}>{medal}</Text>
+              <Text style={styles.memberName} numberOfLines={1}>{score.memberName}</Text>
+              <View style={styles.pointsBadge}>
+                <Text style={styles.pointsValue}>{score.points}</Text>
+                <Text style={styles.pointsLabel}>pts</Text>
+              </View>
+              <Text style={styles.tasksCount}>{score.completedTasks} tarefa(s)</Text>
             </View>
-            <Text style={styles.tasksCount}>{score.completedTasks} tarefa(s)</Text>
-          </View>
-        ))
+          );
+        })
       )}
     </View>
   );

@@ -1,5 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onDocumentUpdated, onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
+import * as https from "https";
 
 admin.initializeApp();
 
@@ -56,9 +58,59 @@ async function assertRateLimit(key: string): Promise<void> {
     });
 }
 
+// ── Expo Push helper ──────────────────────────────────────────────────────────
+
+interface PushMessage {
+    to: string;
+    title: string;
+    body: string;
+    sound?: "default";
+}
+
+async function sendExpoPush(messages: PushMessage[]): Promise<void> {
+    if (messages.length === 0) return;
+
+    const payload = JSON.stringify(messages);
+
+    return new Promise((resolve, reject) => {
+        const req = https.request(
+            {
+                hostname: "exp.host",
+                path: "/--/api/v2/push/send",
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+            },
+            (res) => {
+                res.resume();
+                res.on("end", resolve);
+            },
+        );
+        req.on("error", reject);
+        req.write(payload);
+        req.end();
+    });
+}
+
+async function getTokensForUsers(userIds: string[]): Promise<string[]> {
+    if (userIds.length === 0) return [];
+    const snaps = await Promise.all(
+        userIds.map((id) => db.collection("users").doc(id).get()),
+    );
+    return snaps
+        .map((s) => (s.data() as { pushToken?: string } | undefined)?.pushToken)
+        .filter((t): t is string => !!t && t.startsWith("ExponentPushToken"));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const joinHouseByCode = onCall(async (request) => {
+export const joinHouseByCode = onCall({
+    maxInstances: 5,
+    memory: "128MiB",
+    timeoutSeconds: 30,
+}, async (request) => {
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Não autenticado.");
     }
@@ -126,4 +178,130 @@ export const joinHouseByCode = onCall(async (request) => {
     });
 
     return { success: true, pending: true };
+});
+
+// ── Trigger: house atualizada ─────────────────────────────────────────────────
+
+export const onHouseUpdated = onDocumentUpdated({
+    document: "houses/{houseId}",
+    maxInstances: 3,
+    memory: "128MiB",
+    timeoutSeconds: 30,
+}, async (event) => {
+    const before = event.data?.before.data() as Record<string, unknown> | undefined;
+    const after = event.data?.after.data() as Record<string, unknown> | undefined;
+    if (!before || !after) return;
+
+    const houseName = (after["name"] as string) ?? "toca";
+    const memberIds = (after["memberIds"] as string[]) ?? [];
+
+    // ── 1. Pedido de entrada ─────────────────────────────────────────────────
+    const pendingBefore = (before["pendingMemberIds"] as string[]) ?? [];
+    const pendingAfter = (after["pendingMemberIds"] as string[]) ?? [];
+    const newRequests = pendingAfter.filter((id) => !pendingBefore.includes(id));
+
+    if (newRequests.length > 0) {
+        const pendingRequests = (after["pendingRequests"] as { userId: string; name: string }[]) ?? [];
+        const tokens = await getTokensForUsers(memberIds);
+        const messages: PushMessage[] = [];
+
+        for (const userId of newRequests) {
+            const req = pendingRequests.find((r) => r.userId === userId);
+            const name = req?.name ?? "Alguém";
+            for (const token of tokens) {
+                messages.push({
+                    to: token,
+                    title: "Nova solicitação 🐀",
+                    body: `${name} quer entrar em "${houseName}"`,
+                    sound: "default",
+                });
+            }
+        }
+
+        await sendExpoPush(messages);
+    }
+
+    // ── 2. Aprovação / Rejeição ──────────────────────────────────────────────
+    const membersBefore = (before["memberIds"] as string[]) ?? [];
+    const membersAfter = (after["memberIds"] as string[]) ?? [];
+    const removedFromPending = pendingBefore.filter((id) => !pendingAfter.includes(id));
+
+    for (const userId of removedFromPending) {
+        const wasApproved = membersAfter.includes(userId) && !membersBefore.includes(userId);
+        const tokens = await getTokensForUsers([userId]);
+        if (tokens.length === 0) continue;
+
+        await sendExpoPush([{
+            to: tokens[0],
+            title: wasApproved ? "Solicitação aceita ✅" : "Solicitação recusada",
+            body: wasApproved
+                ? `Você entrou em "${houseName}"! 🐀`
+                : `Sua solicitação para "${houseName}" foi recusada.`,
+            sound: "default",
+        }]);
+    }
+
+    // ── 3. Fim de período ────────────────────────────────────────────────────
+    const periodBefore = before["periodStart"] as string | undefined;
+    const periodAfter = after["periodStart"] as string | undefined;
+
+    if (periodBefore && periodAfter && periodBefore !== periodAfter) {
+        const history = (after["history"] as { scores: { memberName: string; points: number }[]; periodStart: string }[]) ?? [];
+        const lastRecord = history[history.length - 1];
+
+        if (lastRecord?.scores?.length > 0) {
+            const sorted = [...lastRecord.scores].sort((a, b) => b.points - a.points);
+            const topPoints = sorted[0].points;
+            const winners = sorted.filter((s) => s.points === topPoints);
+            const winnerLabel = winners.map((w) => w.memberName).join(" & ");
+            const body = topPoints === 0
+                ? `Período encerrado em "${houseName}" sem pontuação.`
+                : `${winnerLabel} venceu${winners.length > 1 ? "m" : ""} com ${topPoints} pts! 🏆`;
+
+            const tokens = await getTokensForUsers(memberIds);
+            await sendExpoPush(tokens.map((token) => ({
+                to: token,
+                title: "Período encerrado! 🏆",
+                body,
+                sound: "default" as const,
+            })));
+        }
+    }
+});
+
+// ── Trigger: tarefa registrada ────────────────────────────────────────────────
+
+export const onLogCreated = onDocumentCreated({
+    document: "houses/{houseId}/logs/{logId}",
+    maxInstances: 3,
+    memory: "128MiB",
+    timeoutSeconds: 30,
+}, async (event) => {
+    const log = event.data?.data() as { memberId: string; taskId: string } | undefined;
+    if (!log) return;
+
+    const houseId = event.params.houseId;
+    const houseSnap = await db.collection("houses").doc(houseId).get();
+    if (!houseSnap.exists) return;
+
+    const house = houseSnap.data() as {
+        name: string;
+        memberIds: string[];
+        members: { id: string; name: string }[];
+        tasks: { id: string; name: string; points: number }[];
+    };
+
+    const member = house.members.find((m) => m.id === log.memberId);
+    const task = house.tasks.find((t) => t.id === log.taskId);
+    if (!member || !task) return;
+
+    const otherMemberIds = house.memberIds.filter((id) => id !== log.memberId);
+    const tokens = await getTokensForUsers(otherMemberIds);
+
+    await sendExpoPush(tokens.map((token) => ({
+        to: token,
+        title: house.name,
+        body: `${member.name} completou "${task.name}" (+${task.points} pts) ✅`,
+        sound: "default" as const,
+    })));
 });

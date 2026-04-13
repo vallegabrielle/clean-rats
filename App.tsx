@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './src/contexts/AuthContext';
+import { registerForPushNotifications } from './src/services/notifications';
 import { HouseSync } from './src/contexts/HouseContext';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -87,7 +88,7 @@ function AppNavigator({ onboardingDone, onOnboardingDone }: AppNavigatorProps) {
 }
 
 function AppContent() {
-  const { loading: authLoading, isAuthenticated } = useAuth();
+  const { loading: authLoading, isAuthenticated, user } = useAuth();
   const [fontsLoaded] = useFonts({
     Bungee_400Regular,
     NotoSansMono_400Regular,
@@ -100,6 +101,11 @@ function AppContent() {
       setOnboardingDone(val === 'true');
     });
   }, []);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || !user?.uid) return;
+    registerForPushNotifications(user.uid).catch(console.error);
+  }, [authLoading, isAuthenticated, user?.uid]);
 
   // Request ATT and initialize MobileAds once auth has resolved and the user
   // is authenticated. We gate on isAuthenticated so the prompt doesn't fire
