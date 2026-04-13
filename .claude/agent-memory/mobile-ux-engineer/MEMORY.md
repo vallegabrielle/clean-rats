@@ -1,1 +1,0 @@
-- [Clean Rats — project architecture snapshot](project_architecture.md) — tech stack, Firestore schema, Expo config, key flows; no Cloud Functions deployed yet
