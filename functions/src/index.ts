@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentUpdated, onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
 import * as https from "https";
 
@@ -324,6 +325,7 @@ export const onLogCreated = onDocumentCreated({
     const task = house.tasks.find((t) => t.id === log.taskId);
     if (!member || !task) return;
 
+    // ── 1. Notificação de conclusão de tarefa (existente) ─────────────────────
     const otherMemberIds = house.memberIds.filter((id) => id !== log.memberId);
     const tokens = await getTokensForUsers(otherMemberIds);
 
@@ -333,4 +335,122 @@ export const onLogCreated = onDocumentCreated({
         body: `${member.name} completou "${task.name}" (+${task.points} pts) ✅`,
         sound: "default" as const,
     })));
+
+    // ── 2. Rivalry: notifica quem foi ultrapassado ────────────────────────────
+    if (house.memberIds.length < 2) return;
+
+    const logsSnap = await db
+        .collection("houses").doc(houseId)
+        .collection("logs").get();
+
+    // Pontuação atual de cada membro (inclui o novo log)
+    const pointsMap: Record<string, number> = {};
+    for (const logDoc of logsSnap.docs) {
+        const l = logDoc.data() as { memberId: string; taskId: string };
+        const t = house.tasks.find((t) => t.id === l.taskId);
+        if (!t) continue;
+        pointsMap[l.memberId] = (pointsMap[l.memberId] ?? 0) + t.points;
+    }
+
+    const loggerAfter = pointsMap[log.memberId] ?? 0;
+    const loggerBefore = loggerAfter - task.points;
+
+    // Membros que estavam na frente ou empatados antes e agora estão atrás
+    const overtakenIds = otherMemberIds.filter((id) => {
+        const theirPoints = pointsMap[id] ?? 0;
+        return theirPoints >= loggerBefore && loggerAfter > theirPoints;
+    });
+
+    if (overtakenIds.length === 0) return;
+
+    // Mensagem personalizada por destinatário (pontuação específica de cada um)
+    const rivalMessages: PushMessage[] = [];
+    for (const rivalId of overtakenIds) {
+        const rivalTokens = await getTokensForUsers([rivalId]);
+        const theirPoints = pointsMap[rivalId] ?? 0;
+        for (const token of rivalTokens) {
+            rivalMessages.push({
+                to: token,
+                title: house.name,
+                body: `${member.name} te ultrapassou! 🔥 ${loggerAfter} vs ${theirPoints} pts`,
+                sound: "default" as const,
+            });
+        }
+    }
+
+    await sendExpoPush(rivalMessages);
+});
+
+// ── Scheduled: notifica membros inativos ──────────────────────────────────────
+
+const STALE_THRESHOLDS: Record<string, number> = {
+    weekly: 2,
+    biweekly: 4,
+    monthly: 7,
+};
+
+export const notifyStaleMembers = onSchedule({
+    schedule: "0 22 * * *",  // diariamente, 19h BRT (UTC-3)
+    timeoutSeconds: 120,
+    memory: "256MiB",
+}, async () => {
+    const now = Date.now();
+    const housesSnap = await db.collection("houses").get();
+
+    for (const houseDoc of housesSnap.docs) {
+        const house = houseDoc.data() as {
+            name: string;
+            period: string;
+            periodStart?: string;
+            memberIds: string[];
+        };
+
+        if (!house.periodStart || house.memberIds.length === 0) continue;
+
+        const thresholdMs = (STALE_THRESHOLDS[house.period] ?? 3) * 24 * 60 * 60 * 1000;
+        const periodStart = new Date(house.periodStart).getTime();
+
+        // Logs do período atual
+        const logsSnap = await db
+            .collection("houses").doc(houseDoc.id)
+            .collection("logs")
+            .where("completedAt", ">=", house.periodStart)
+            .get();
+
+        // Último log por membro no período atual
+        const lastLogByMember: Record<string, number> = {};
+        for (const logDoc of logsSnap.docs) {
+            const { memberId, completedAt } = logDoc.data() as {
+                memberId: string;
+                completedAt: string;
+            };
+            const ts = new Date(completedAt).getTime();
+            if (!lastLogByMember[memberId] || ts > lastLogByMember[memberId]) {
+                lastLogByMember[memberId] = ts;
+            }
+        }
+
+        // Membros sem atividade além do threshold
+        const staleIds = house.memberIds.filter((id) => {
+            const last = lastLogByMember[id] ?? periodStart;
+            return now - last > thresholdMs;
+        });
+
+        if (staleIds.length === 0) continue;
+
+        const messages: PushMessage[] = [];
+        for (const memberId of staleIds) {
+            const memberTokens = await getTokensForUsers([memberId]);
+            for (const token of memberTokens) {
+                messages.push({
+                    to: token,
+                    title: house.name,
+                    body: "A casa tá suja! 🧹 Que tal registrar uma tarefa?",
+                    sound: "default" as const,
+                });
+            }
+        }
+
+        await sendExpoPush(messages);
+    }
 });
