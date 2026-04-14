@@ -22,7 +22,7 @@ export function showToast(message: string, type: ToastType = 'error') {
 
 function ToastEntry({ item, onDone }: { item: ToastItem; onDone: (id: number) => void }) {
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(-24)).current;
+  const translateY = useRef(new Animated.Value(24)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -33,7 +33,7 @@ function ToastEntry({ item, onDone }: { item: ToastItem; onDone: (id: number) =>
     const timer = setTimeout(() => {
       Animated.parallel([
         Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
-        Animated.timing(translateY, { toValue: -16, duration: 300, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: 16, duration: 300, useNativeDriver: true }),
       ]).start(() => onDone(item.id));
     }, 3000);
 
@@ -75,7 +75,7 @@ export function ToastProvider() {
 
   return (
     <View
-      style={[styles.container, { top: insets.top + 12 }]}
+      style={[styles.container, { bottom: insets.bottom + 24 }]}
       pointerEvents="none"
     >
       {toasts.map((t) => (
