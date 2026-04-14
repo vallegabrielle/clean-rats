@@ -82,7 +82,7 @@ export default function LoginScreen() {
 
                         {Platform.OS === "ios" && (
                             <TouchableOpacity
-                                style={styles.googleBtn}
+                                style={styles.appleBtn}
                                 onPress={async () => {
                                     try {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -98,8 +98,8 @@ export default function LoginScreen() {
                                     }
                                 }}
                             >
-                                <AntDesign name="apple" size={22} color="#000" />
-                                <Text style={styles.googleBtnText}>Entrar com Apple</Text>
+                                <AntDesign name="apple" size={22} color="#fff" />
+                                <Text style={styles.appleBtnText}>Entrar com Apple</Text>
                             </TouchableOpacity>
                         )}
                     </>
@@ -169,6 +169,22 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: "NotoSansMono_400Regular",
         color: "#333",
+    },
+    appleBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#000",
+        borderRadius: 12,
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        gap: 14,
+        width: "100%",
+        justifyContent: "center",
+    },
+    appleBtnText: {
+        fontSize: 16,
+        fontFamily: "NotoSansMono_400Regular",
+        color: "#fff",
     },
     googleIcon: {
         width: 26,

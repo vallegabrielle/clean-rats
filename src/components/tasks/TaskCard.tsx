@@ -1,10 +1,13 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { Swipeable } from 'react-native-gesture-handler';
 import { COLORS } from '../../constants';
 import { Task } from '../../types';
 import { swipeStyles } from '../../utils';
+
+const SWIPE_HINT_KEY = 'swipe_hint_seen';
 
 export function TaskCard({
   task,
@@ -21,17 +24,25 @@ export function TaskCard({
 }) {
   const swipeRef = useRef<Swipeable>(null);
   const hintAnim = useRef(new Animated.Value(0)).current;
+  const [hintSeen, setHintSeen] = useState(true);
 
   useEffect(() => {
-    if (!isFirst) return;
+    AsyncStorage.getItem(SWIPE_HINT_KEY).then((val) => setHintSeen(val === 'true'));
+  }, []);
+
+  useEffect(() => {
+    if (!isFirst || hintSeen) return;
     const timer = setTimeout(() => {
       Animated.sequence([
         Animated.timing(hintAnim, { toValue: -18, duration: 250, useNativeDriver: true }),
         Animated.timing(hintAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-      ]).start();
+      ]).start(() => {
+        AsyncStorage.setItem(SWIPE_HINT_KEY, 'true');
+        setHintSeen(true);
+      });
     }, 800);
     return () => clearTimeout(timer);
-  }, []);
+  }, [hintSeen]);
 
   function renderRightActions() {
     return (

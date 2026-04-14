@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
 import { getDateKey, formatDateLabel } from '../utils';
 import { useHouseStore, selectActiveHouse } from '../contexts/HouseContext';
@@ -130,10 +131,20 @@ export default function HomeScreen() {
                 </View>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={styles.iconBtn} onPress={() => setSettingsOpen(true)}>
-              <Text style={styles.iconBtnText}>···</Text>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => setSettingsOpen(true)}
+              accessibilityLabel="Configurações"
+              accessibilityRole="button"
+            >
+              <MaterialIcons name="more-vert" size={22} color={COLORS.textMuted} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.logBtn} onPress={() => setLogModalOpen(true)}>
+            <TouchableOpacity
+              style={styles.logBtn}
+              onPress={() => setLogModalOpen(true)}
+              accessibilityLabel="Registrar atividade"
+              accessibilityRole="button"
+            >
               <Text style={styles.logBtnText}>+</Text>
             </TouchableOpacity>
           </View>
@@ -189,43 +200,43 @@ export default function HomeScreen() {
               <View style={styles.scoresRow}>
                 {myScore && (
                   <View style={styles.scoreCard}>
-                    <Text style={styles.scoreCardLabel}>{myRank > 0 ? `${rankLabel} ` : ''}Meus pontos</Text>
-                    <Text style={styles.scoreCardValue}>{myScore.points}</Text>
-                    <Text style={styles.scoreCardSub}>{myScore.completedTasks} atividade(s)</Text>
+                    <Text style={styles.scoreCardLabel} numberOfLines={1}>{myRank > 0 ? `${rankLabel} ` : ''}Meus pontos</Text>
+                    <Text style={styles.scoreCardValue} numberOfLines={1}>{myScore.points}</Text>
+                    <Text style={styles.scoreCardSub} numberOfLines={1}>{myScore.completedTasks} atividade(s)</Text>
                   </View>
                 )}
                 {logs.length === 0 ? (
-                  <View style={[styles.scoreCard, styles.scoreCardLeader]}>
-                    <Text style={styles.scoreCardLabel}>Nenhuma atividade</Text>
+                  <View style={styles.scoreCard}>
+                    <Text style={styles.scoreCardLabel} numberOfLines={1}>Nenhuma atividade</Text>
                     <Text style={[styles.scoreCardSub, { marginTop: 6 }]}>🚀 Registre a primeira tarefa!</Text>
                   </View>
                 ) : (
                   <>
                     {isTied && (
                       <View style={[styles.scoreCard, styles.scoreCardLeader]}>
-                        <Text style={styles.scoreCardLabel}>🏆 Empate!</Text>
-                        <Text style={styles.scoreCardValue}>{topPoints} pts</Text>
-                        <Text style={styles.scoreCardSub}>{leaders.map((l) => l.member.name).join(' & ')}</Text>
+                        <Text style={styles.scoreCardLabel} numberOfLines={1}>🏆 Empate!</Text>
+                        <Text style={styles.scoreCardValue} numberOfLines={1}>{topPoints} pts</Text>
+                        <Text style={styles.scoreCardSub} numberOfLines={1}>{leaders.map((l) => l.member.name).join(' & ')}</Text>
                       </View>
                     )}
                     {leader && leader.member.id !== myMember?.id && (
                       <View style={[styles.scoreCard, styles.scoreCardLeader]}>
-                        <Text style={styles.scoreCardLabel}>🏆 Líder</Text>
-                        <Text style={styles.scoreCardValue}>{leader.points}</Text>
-                        <Text style={styles.scoreCardSub}>{leader.member.name}</Text>
+                        <Text style={styles.scoreCardLabel} numberOfLines={1}>🏆 Líder</Text>
+                        <Text style={styles.scoreCardValue} numberOfLines={1}>{leader.points}</Text>
+                        <Text style={styles.scoreCardSub} numberOfLines={1}>{leader.member.name}</Text>
                       </View>
                     )}
                     {leader && leader.member.id === myMember?.id && scores.length === 1 && (
                       <View style={[styles.scoreCard, styles.scoreCardLeader]}>
-                        <Text style={styles.scoreCardLabel}>🏆 Você é o líder!</Text>
-                        <Text style={styles.scoreCardValue}>{leader.points} pts</Text>
+                        <Text style={styles.scoreCardLabel} numberOfLines={1}>🏆 Você é o líder!</Text>
+                        <Text style={styles.scoreCardValue} numberOfLines={1}>{leader.points} pts</Text>
                       </View>
                     )}
                     {leader && leader.member.id === myMember?.id && scores.length > 1 && (
                       <View style={[styles.scoreCard, styles.scoreCardLeader]}>
-                        <Text style={styles.scoreCardLabel}>🏆 Você lidera!</Text>
-                        <Text style={styles.scoreCardValue}>{leader.points} pts</Text>
-                        <Text style={styles.scoreCardSub}>à frente de {scores.find((s) => s.points < leader.points)?.member.name}</Text>
+                        <Text style={styles.scoreCardLabel} numberOfLines={1}>🏆 Você lidera!</Text>
+                        <Text style={styles.scoreCardValue} numberOfLines={1}>{leader.points} pts</Text>
+                        <Text style={styles.scoreCardSub} numberOfLines={1}>à frente de {scores.find((s) => s.points < leader.points)?.member.name}</Text>
                       </View>
                     )}
                   </>
@@ -342,26 +353,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconBtn: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconBtnText: {
-    fontSize: 24,
-    color: COLORS.textMuted,
-    letterSpacing: 2,
-    lineHeight: 28,
-  },
   logBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: COLORS.red,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logBtnText: { fontSize: 22, color: '#fff', lineHeight: 22 },
+  logBtnText: { fontSize: 22, color: '#fff', includeFontPadding: false },
   pendingBtn: {
     width: 36,
     height: 36,

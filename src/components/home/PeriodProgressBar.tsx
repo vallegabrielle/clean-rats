@@ -42,7 +42,12 @@ export function PeriodProgressBar({ house }: { house: House }) {
         <Text style={styles.periodLabel}>Período {PERIOD_LABEL[house.period]}</Text>
         <Text style={styles.periodRemaining}>{remaining}</Text>
       </View>
-      <View style={styles.periodTrack}>
+      <View
+        style={styles.periodTrack}
+        accessibilityRole="progressbar"
+        accessibilityLabel={`Progresso do período: ${Math.round(progress * 100)}%`}
+        accessibilityValue={{ min: 0, max: 100, now: Math.round(progress * 100) }}
+      >
         <View style={[styles.periodFill, { width: `${Math.round(progress * 100)}%` }]} />
       </View>
       {!!house.prize && (
@@ -79,7 +84,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   periodTrack: {
-    height: 6,
+    height: 8,
     backgroundColor: COLORS.surfaceAlt,
     borderRadius: 3,
     overflow: 'hidden',

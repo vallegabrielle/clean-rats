@@ -2,8 +2,14 @@ import { Task } from '../types';
 
 export const MAX_TASK_POINTS = 1000;
 
+export const RADIUS = {
+  sm: 8,
+  md: 10,
+  lg: 16,
+  full: 9999,
+};
+
 export const COLORS = {
-  primary: '#1DB954',
   background: '#121212',
   surface: '#1e1e1e',
   surfaceAlt: '#2a2a2a',

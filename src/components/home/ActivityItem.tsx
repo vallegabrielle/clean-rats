@@ -1,10 +1,13 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { Swipeable } from 'react-native-gesture-handler';
 import { COLORS } from '../../constants';
 import { formatTime, initials, swipeStyles, avatarColor } from '../../utils';
 import { House, TaskLog } from '../../types';
+
+const SWIPE_HINT_KEY = 'swipe_hint_seen';
 
 export function DateSeparator({ label }: { label: string }) {
   return (
@@ -37,19 +40,27 @@ export function ActivityItem({
   const hintAnim = useRef(new Animated.Value(0)).current;
   const task = house.tasks.find((t) => t.id === log.taskId);
   const member = house.members.find((m) => m.id === log.memberId);
+  const [hintSeen, setHintSeen] = useState(true);
 
   const isOwner = log.memberId === currentUserId;
 
   useEffect(() => {
-    if (!isFirst || !isOwner) return;
+    AsyncStorage.getItem(SWIPE_HINT_KEY).then((val) => setHintSeen(val === 'true'));
+  }, []);
+
+  useEffect(() => {
+    if (!isFirst || !isOwner || hintSeen) return;
     const timer = setTimeout(() => {
       Animated.sequence([
         Animated.timing(hintAnim, { toValue: -18, duration: 250, useNativeDriver: true }),
         Animated.timing(hintAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-      ]).start();
+      ]).start(() => {
+        AsyncStorage.setItem(SWIPE_HINT_KEY, 'true');
+        setHintSeen(true);
+      });
     }, 800);
     return () => clearTimeout(timer);
-  }, []);
+  }, [hintSeen]);
 
   if (!task || !member) return null;
 
