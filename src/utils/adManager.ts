@@ -12,6 +12,7 @@ const adUnitId = __DEV__
 
 let ad: InterstitialAd | null = null;
 let adLoaded = false;
+let initialized = false;
 
 function createAndLoad() {
   if (!adUnitId) {
@@ -43,9 +44,8 @@ function createAndLoad() {
  * Preloads the interstitial immediately and auto-reloads after each show.
  */
 export function initInterstitialAd() {
-  // Log the resolved unit ID so you can confirm the correct ID is baked into
-  // the build. In production __DEV__ is false, so the real env var is used.
-  // If this toast shows an empty string or the banner ID, the env var is wrong.
+  if (initialized) return;
+  initialized = true;
   showToast(`[AD] init id=${adUnitId || '(vazio)'}`, 'success');
   createAndLoad();
 }

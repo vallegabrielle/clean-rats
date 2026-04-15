@@ -4,7 +4,6 @@ import { useFonts, Bungee_400Regular } from '@expo-google-fonts/bungee';
 import { NotoSansMono_400Regular } from '@expo-google-fonts/noto-sans-mono';
 import { Platform, View, ActivityIndicator } from 'react-native';
 import MobileAds, { requestTrackingTransparencyPermission } from 'react-native-google-mobile-ads';
-import { initInterstitialAd } from './src/utils/adManager';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -23,7 +22,7 @@ import MembersScreen from './src/screens/MembersScreen';
 import OnboardingScreen, { ONBOARDING_KEY } from './src/screens/OnboardingScreen';
 import SetDisplayNameScreen from './src/screens/SetDisplayNameScreen';
 import { OnboardingContext } from './src/contexts/OnboardingContext';
-import { ToastProvider, showToast } from './src/components/Toast';
+import { ToastProvider } from './src/components/Toast';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
 
@@ -108,36 +107,19 @@ function AppContent() {
     registerForPushNotifications(user.uid).catch(console.error);
   }, [authLoading, isAuthenticated, user?.uid]);
 
-  // Request ATT and initialize MobileAds once auth has resolved and the user
-  // is authenticated. We gate on isAuthenticated so the prompt doesn't fire
-  // on the cold-start loading screen or on the login screen.
+  // Start ATT + SDK init as early as possible (fire-and-forget).
+  // initInterstitialAd() is called from HomeScreen once we know the UI is ready.
   useEffect(() => {
-    if (authLoading || !isAuthenticated || !fontsLoaded || onboardingDone === null || adsInitialized.current) return;
+    if (authLoading || !isAuthenticated || adsInitialized.current) return;
     adsInitialized.current = true;
-
-    async function initAds() {
-      if (Platform.OS === 'ios') {
-        // ATT prompt — 3 s timeout so a hung native callback never blocks the
-        // rest of the init chain. The SDK still serves (limited) ads if ATT
-        // is skipped or denied.
-        await Promise.race([
-          requestTrackingTransparencyPermission(),
-          new Promise<void>((resolve) => setTimeout(resolve, 3000)),
-        ]);
-      }
-      // 5 s timeout — initialize() can hang on misconfigured builds.
-      await Promise.race([
-        MobileAds().initialize(),
-        new Promise<void>((resolve) => setTimeout(resolve, 5000)),
-      ]);
-      initInterstitialAd();
+    if (Platform.OS === 'ios') {
+      requestTrackingTransparencyPermission()
+        .catch(() => {})
+        .finally(() => MobileAds().initialize().catch(() => {}));
+    } else {
+      MobileAds().initialize().catch(() => {});
     }
-
-    initAds().catch((e: unknown) => {
-      const msg = e instanceof Error ? e.message : String(e);
-      showToast(`[AD] init falhou: ${msg}`, 'error');
-    });
-  }, [authLoading, isAuthenticated, fontsLoaded, onboardingDone]);
+  }, [authLoading, isAuthenticated]);
 
   if (!fontsLoaded || authLoading || onboardingDone === null) {
     return (

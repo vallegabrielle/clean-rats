@@ -30,6 +30,7 @@ import { PeriodProgressBar } from '../components/home/PeriodProgressBar';
 import { PeriodResetBanner } from '../components/home/PeriodResetBanner';
 import { ActivityItem, DateSeparator } from '../components/home/ActivityItem';
 import { AdBanner } from '../components/AdBanner';
+import { initInterstitialAd } from '../utils/adManager';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -53,6 +54,10 @@ export default function HomeScreen() {
   const feedY = useRef(0);
 
   useEffect(() => { setVisibleCount(30); }, [house?.id]);
+
+  // HomeScreen is the first screen rendered after auth + onboarding — ToastProvider
+  // is guaranteed mounted here. initInterstitialAd() is idempotent (runs once only).
+  useEffect(() => { initInterstitialAd(); }, []);
 
   function handleSwipeOpen(ref: Swipeable) {
     if (openSwipeRef.current && openSwipeRef.current !== ref) {
