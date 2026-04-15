@@ -5,7 +5,7 @@
 let sessionAdCount = 0;
 let lastAdShownAt = 0;
 
-const MAX_PER_SESSION = 1;
+const MAX_PER_SESSION = 5;
 const MIN_INTERVAL_MS = 5 * 60 * 1000;
 
 export function canShowAd(): boolean {

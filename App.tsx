@@ -112,7 +112,7 @@ function AppContent() {
   // is authenticated. We gate on isAuthenticated so the prompt doesn't fire
   // on the cold-start loading screen or on the login screen.
   useEffect(() => {
-    if (authLoading || !isAuthenticated || adsInitialized.current) return;
+    if (authLoading || !isAuthenticated || !fontsLoaded || onboardingDone === null || adsInitialized.current) return;
     adsInitialized.current = true;
 
     async function initAds() {
@@ -130,7 +130,7 @@ function AppContent() {
       const msg = e instanceof Error ? e.message : String(e);
       showToast(`[AD] init falhou: ${msg}`, 'error');
     });
-  }, [authLoading, isAuthenticated]);
+  }, [authLoading, isAuthenticated, fontsLoaded, onboardingDone]);
 
   if (!fontsLoaded || authLoading || onboardingDone === null) {
     return (

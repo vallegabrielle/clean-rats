@@ -53,7 +53,7 @@ export function LogActivityModal({
   // Safer than setTimeout: guaranteed the UIViewController is gone before
   // presenting the interstitial on top.
   function handleDismissed() {
-    if (sessionLogCount % 3 !== 0) return;
+    if (sessionLogCount === 0 || sessionLogCount % 3 !== 0) return;
     try { maybeShowInterstitial(); } catch { /* silent */ }
   }
 
