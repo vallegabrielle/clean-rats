@@ -13,6 +13,8 @@ let ad: InterstitialAd | null = null;
 let adLoaded = false;
 
 function createAndLoad() {
+  if (ad) ad.removeAllListeners();
+
   ad = InterstitialAd.createForAdRequest(adUnitId);
   adLoaded = false;
 
@@ -39,8 +41,8 @@ export function initInterstitialAd() {
 export function maybeShowInterstitial(): boolean {
   if (!canShowAd() || !adLoaded || !ad) return false;
   try {
-    recordAdShown();
     ad.show();
+    recordAdShown();
     return true;
   } catch {
     return false;

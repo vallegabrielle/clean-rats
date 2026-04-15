@@ -1,7 +1,7 @@
 import { Modal, View, Text, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useSheetDismiss } from '../hooks/useSheetDismiss';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHouseStore, selectActiveHouse } from '../contexts/HouseContext';
 import { useShallow } from 'zustand/react/shallow';
@@ -49,12 +49,12 @@ export function LogActivityModal({
     onClose();
   }
 
-  function maybeShowInterstitialAfterClose() {
+  // Called by Modal's onDismiss — fires after the slide animation completes.
+  // Safer than setTimeout: guaranteed the UIViewController is gone before
+  // presenting the interstitial on top.
+  function handleDismissed() {
     if (sessionLogCount % 3 !== 0) return;
-    // Small delay to let the modal close animation start before the ad appears.
-    setTimeout(() => {
-      try { maybeShowInterstitial(); } catch { /* silent */ }
-    }, 16);
+    try { maybeShowInterstitial(); } catch { /* silent */ }
   }
 
   async function handleSelect(taskId: string) {
@@ -72,7 +72,6 @@ export function LogActivityModal({
         // Increment only after a successful write.
         sessionLogCount += 1;
         handleClose();
-        maybeShowInterstitialAfterClose();
       }
     } finally {
       setLoadingId(null);
@@ -88,14 +87,13 @@ export function LogActivityModal({
       // Increment only after a successful write.
       sessionLogCount += 1;
       handleClose();
-      maybeShowInterstitialAfterClose();
     } finally {
       setLoadingId(null);
     }
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose} onDismiss={handleDismissed}>
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={handleClose} />
 
       <KeyboardAvoidingView
