@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useFonts, Bungee_400Regular } from '@expo-google-fonts/bungee';
 import { NotoSansMono_400Regular } from '@expo-google-fonts/noto-sans-mono';
 import { Alert, Platform, View, ActivityIndicator } from 'react-native';
-import MobileAds, { requestTrackingTransparencyPermission } from 'react-native-google-mobile-ads';
+import MobileAds from 'react-native-google-mobile-ads';
 import { initInterstitialAd } from './src/utils/adManager';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -112,30 +112,15 @@ function AppContent() {
     if (authLoading || !isAuthenticated || adsInitialized.current) return;
     adsInitialized.current = true;
 
-    const loadAd = () =>
-      Promise.race([
-        MobileAds().initialize(),
-        new Promise<void>((r) => setTimeout(r, 5000)),
-      ])
-        .catch((e: unknown) => {
-          const msg = e instanceof Error ? e.message : String(e);
-          Alert.alert('AD DEBUG', `MobileAds.initialize() falhou: ${msg}`);
-        })
-        .finally(() => initInterstitialAd());
-
-    if (Platform.OS === 'ios') {
-      Promise.race([
-        requestTrackingTransparencyPermission(),
-        new Promise<void>((r) => setTimeout(r, 3000)),
-      ])
-        .catch((e: unknown) => {
-          const msg = e instanceof Error ? e.message : String(e);
-          Alert.alert('AD DEBUG', `ATT falhou: ${msg}`);
-        })
-        .finally(loadAd);
-    } else {
-      loadAd();
-    }
+    Promise.race([
+      MobileAds().initialize(),
+      new Promise<void>((r) => setTimeout(r, 5000)),
+    ])
+      .catch((e: unknown) => {
+        const msg = e instanceof Error ? e.message : String(e);
+        Alert.alert('AD DEBUG', `MobileAds.initialize() falhou: ${msg}`);
+      })
+      .finally(() => initInterstitialAd());
   }, [authLoading, isAuthenticated]);
 
   if (!fontsLoaded || authLoading || onboardingDone === null) {
