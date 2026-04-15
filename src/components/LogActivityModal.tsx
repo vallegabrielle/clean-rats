@@ -32,7 +32,7 @@ export function LogActivityModal({
 }: {
   visible: boolean;
   onClose: () => void;
-  editingLogId?: string;
+  editingLogId?: string | undefined;
 }) {
   const house = useHouseStore(selectActiveHouse);
   const { logTaskInHouse, updateLogInHouse, addTaskAndLogInHouse, logs } = useHouseStore(
@@ -54,8 +54,10 @@ export function LogActivityModal({
   const interstitialLoaded = useRef(false);
 
   useEffect(() => {
-    // Don't preload in edit mode — ad will never fire for edits.
-    if (editingLogId !== undefined) return;
+    // Load the ad when the modal opens for a new log.
+    // Gating on `visible` (not just mount) avoids a race condition where
+    // ad.load() fires before MobileAds().initialize() completes in App.tsx.
+    if (!visible || editingLogId !== undefined) return;
 
     const ad = InterstitialAd.createForAdRequest(adUnitId);
     interstitialRef.current = ad;
@@ -74,7 +76,7 @@ export function LogActivityModal({
       unsubscribeLoaded();
       unsubscribeClosed();
     };
-  }, [editingLogId]);
+  }, [visible, editingLogId]);
 
   const currentTaskId = editingLogId
     ? logs.find((l) => l.id === editingLogId)?.taskId
