@@ -117,14 +117,15 @@ function AppContent() {
 
     async function initAds() {
       if (Platform.OS === 'ios') {
-        // ATT prompt — must be shown before initializing the SDK on iOS 14+.
-        // The result doesn't block SDK init; AdMob will serve limited ads if
-        // the user denies.
-        await requestTrackingTransparencyPermission();
+        // ATT prompt — 3 s timeout so a hung native callback never blocks the
+        // rest of the init chain. The SDK still serves (limited) ads if ATT
+        // is skipped or denied.
+        await Promise.race([
+          requestTrackingTransparencyPermission(),
+          new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+        ]);
       }
-      // 5 s timeout — initialize() can hang indefinitely on misconfigured builds.
-      // Resolving (not rejecting) means we proceed regardless; the SDK may still
-      // serve ads even if init didn't fully complete.
+      // 5 s timeout — initialize() can hang on misconfigured builds.
       await Promise.race([
         MobileAds().initialize(),
         new Promise<void>((resolve) => setTimeout(resolve, 5000)),
