@@ -10,7 +10,7 @@ workflows:
         - app_env
         - app
       node: v20
-      xcode: 16.1
+      xcode: latest
 
     cache:
       cache_paths:
@@ -84,7 +84,7 @@ workflows:
         - app_env
         - app
       node: v20
-      xcode: 16.1
+      xcode: latest
 
     cache:
       cache_paths:
@@ -159,7 +159,7 @@ workflows:
         - app_env
         - app
       node: v20
-      xcode: 16.1
+      xcode: latest
 
     cache:
       cache_paths:

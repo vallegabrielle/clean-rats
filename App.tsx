@@ -23,7 +23,7 @@ import MembersScreen from './src/screens/MembersScreen';
 import OnboardingScreen, { ONBOARDING_KEY } from './src/screens/OnboardingScreen';
 import SetDisplayNameScreen from './src/screens/SetDisplayNameScreen';
 import { OnboardingContext } from './src/contexts/OnboardingContext';
-import { ToastProvider } from './src/components/Toast';
+import { ToastProvider, showToast } from './src/components/Toast';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
 
@@ -126,7 +126,10 @@ function AppContent() {
       initInterstitialAd();
     }
 
-    initAds();
+    initAds().catch((e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      showToast(`[AD] init falhou: ${msg}`, 'error');
+    });
   }, [authLoading, isAuthenticated]);
 
   if (!fontsLoaded || authLoading || onboardingDone === null) {
