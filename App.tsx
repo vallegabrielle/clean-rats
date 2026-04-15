@@ -2,7 +2,7 @@ import 'react-native-gesture-handler';
 import { useEffect, useRef, useState } from 'react';
 import { useFonts, Bungee_400Regular } from '@expo-google-fonts/bungee';
 import { NotoSansMono_400Regular } from '@expo-google-fonts/noto-sans-mono';
-import { Platform, View, ActivityIndicator } from 'react-native';
+import { Alert, Platform, View, ActivityIndicator } from 'react-native';
 import MobileAds, { requestTrackingTransparencyPermission } from 'react-native-google-mobile-ads';
 import { initInterstitialAd } from './src/utils/adManager';
 import { NavigationContainer } from '@react-navigation/native';
@@ -117,7 +117,10 @@ function AppContent() {
         MobileAds().initialize(),
         new Promise<void>((r) => setTimeout(r, 5000)),
       ])
-        .catch(() => {})
+        .catch((e: unknown) => {
+          const msg = e instanceof Error ? e.message : String(e);
+          Alert.alert('AD DEBUG', `MobileAds.initialize() falhou: ${msg}`);
+        })
         .finally(() => initInterstitialAd());
 
     if (Platform.OS === 'ios') {
@@ -125,7 +128,10 @@ function AppContent() {
         requestTrackingTransparencyPermission(),
         new Promise<void>((r) => setTimeout(r, 3000)),
       ])
-        .catch(() => {})
+        .catch((e: unknown) => {
+          const msg = e instanceof Error ? e.message : String(e);
+          Alert.alert('AD DEBUG', `ATT falhou: ${msg}`);
+        })
         .finally(loadAd);
     } else {
       loadAd();

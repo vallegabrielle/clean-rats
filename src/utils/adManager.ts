@@ -1,7 +1,12 @@
 import { InterstitialAd, AdEventType, TestIds } from 'react-native-google-mobile-ads';
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { canShowAd, recordAdShown } from './adFrequencyCap';
 import { showToast } from '../components/Toast';
+
+function debug(msg: string) {
+  showToast(msg, msg.includes('erro') || msg.includes('falhou') || msg.includes('nao') || msg.includes('vazio') ? 'error' : 'success');
+  Alert.alert('AD DEBUG', msg); // native dialog — não depende do ToastProvider
+}
 
 const adUnitId = __DEV__
   ? TestIds.INTERSTITIAL
@@ -16,7 +21,7 @@ let initialized = false;
 
 function createAndLoad() {
   if (!adUnitId) {
-    showToast('[AD] erro: adUnitId vazio (variavel de env nao definida)', 'error');
+    debug('[AD] erro: adUnitId vazio');
     return;
   }
 
@@ -27,13 +32,13 @@ function createAndLoad() {
 
   ad.addAdEventListener(AdEventType.LOADED, () => {
     adLoaded = true;
-    showToast('[AD] carregado', 'success');
+    debug('[AD] carregado');
   });
   ad.addAdEventListener(AdEventType.CLOSED, () => { adLoaded = false; createAndLoad(); });
   ad.addAdEventListener(AdEventType.ERROR, (e: unknown) => {
     adLoaded = false;
     const msg = e instanceof Error ? e.message : String(e);
-    showToast(`[AD] erro: ${msg}`, 'error');
+    debug(`[AD] erro: ${msg}`);
   });
 
   ad.load();
@@ -46,7 +51,7 @@ function createAndLoad() {
 export function initInterstitialAd() {
   if (initialized) return;
   initialized = true;
-  showToast(`[AD] init id=${adUnitId || '(vazio)'}`, 'success');
+  debug(`[AD] init id=${adUnitId || '(vazio)'}`);
   createAndLoad();
 }
 
