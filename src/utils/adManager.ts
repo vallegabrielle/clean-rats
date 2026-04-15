@@ -6,7 +6,7 @@ import { showToast } from '../components/Toast';
 const adUnitId = __DEV__
   ? TestIds.INTERSTITIAL
   : Platform.select({
-      ios: process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS_ID ?? '',
+      ios: 'ca-app-pub-8864558033968402/8291195810',
       android: process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ANDROID_ID ?? '',
     }) ?? '';
 

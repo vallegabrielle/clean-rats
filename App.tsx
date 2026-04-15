@@ -122,7 +122,13 @@ function AppContent() {
         // the user denies.
         await requestTrackingTransparencyPermission();
       }
-      await MobileAds().initialize();
+      // 5 s timeout — initialize() can hang indefinitely on misconfigured builds.
+      // Resolving (not rejecting) means we proceed regardless; the SDK may still
+      // serve ads even if init didn't fully complete.
+      await Promise.race([
+        MobileAds().initialize(),
+        new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+      ]);
       initInterstitialAd();
     }
 
