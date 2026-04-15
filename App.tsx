@@ -4,6 +4,7 @@ import { useFonts, Bungee_400Regular } from '@expo-google-fonts/bungee';
 import { NotoSansMono_400Regular } from '@expo-google-fonts/noto-sans-mono';
 import { Platform, View, ActivityIndicator } from 'react-native';
 import MobileAds, { requestTrackingTransparencyPermission } from 'react-native-google-mobile-ads';
+import { initInterstitialAd } from './src/utils/adManager';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -122,6 +123,7 @@ function AppContent() {
         await requestTrackingTransparencyPermission();
       }
       await MobileAds().initialize();
+      initInterstitialAd();
     }
 
     initAds();
