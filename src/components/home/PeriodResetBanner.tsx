@@ -4,6 +4,9 @@ import { COLORS } from '../../constants';
 import { MemberScore } from '../../types';
 import { useHouseStore } from '../../contexts/HouseContext';
 import { useShallow } from 'zustand/react/shallow';
+import { InterstitialAd, AdEventType, TestIds } from 'react-native-google-mobile-ads';
+import { Platform } from 'react-native';
+import { canShowAd, recordAdShown } from '../../utils/adFrequencyCap';
 
 interface Props {
   houseId: string;
@@ -58,6 +61,13 @@ function BannerContent({ scores, prize, onDismiss }: Omit<Props, 'houseId'>) {
   );
 }
 
+const resetAdUnitId = __DEV__
+  ? TestIds.INTERSTITIAL
+  : Platform.select({
+      ios: process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS_ID ?? '',
+      android: process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ANDROID_ID ?? '',
+    }) ?? '';
+
 /**
  * Reads `lastResetInfo` from the house store and renders an animated banner
  * when a period reset was performed by this client in the current session.
@@ -71,6 +81,44 @@ export function PeriodResetBanner() {
     })),
   );
 
+  // Fire an interstitial when lastResetInfo transitions null → non-null.
+  // A fresh ad instance is created on each reset detection — no preloading
+  // since resets are rare and we don't want an idle preloaded ad wasting quota.
+  useEffect(() => {
+    if (!lastResetInfo) return;
+    if (!canShowAd()) return;
+
+    const ad = InterstitialAd.createForAdRequest(resetAdUnitId);
+
+    const unsubscribeLoaded = ad.addAdEventListener(AdEventType.LOADED, () => {
+      try {
+        recordAdShown();
+        ad.show();
+      } catch {
+        // Silently ignore — never show error UI to the user.
+      }
+    });
+
+    const unsubscribeClosed = ad.addAdEventListener(AdEventType.CLOSED, () => {
+      unsubscribeLoaded();
+      unsubscribeClosed();
+    });
+
+    const unsubscribeError = ad.addAdEventListener(AdEventType.ERROR, () => {
+      unsubscribeLoaded();
+      unsubscribeError();
+    });
+
+    ad.load();
+
+    return () => {
+      unsubscribeLoaded();
+      unsubscribeClosed();
+      unsubscribeError();
+    };
+  }, [lastResetInfo]);
+
+  // Banner renders regardless of whether the ad fires.
   if (!lastResetInfo) return null;
 
   return (

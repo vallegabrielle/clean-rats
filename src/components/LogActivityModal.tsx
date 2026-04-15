@@ -11,18 +11,18 @@ import { styles } from './log-activity/styles';
 import { TaskList } from './log-activity/TaskList';
 import { CustomTaskForm } from './log-activity/CustomTaskForm';
 import { DateSelector } from './log-activity/DateSelector';
+import { canShowAd, recordAdShown } from '../utils/adFrequencyCap';
 
 // ─── Interstitial ad setup ────────────────────────────────────────────────────
 
-const PROD_INTERSTITIAL_IOS_ID = process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS_ID ?? '';
-const INTERSTITIAL_AD_UNIT_ID =
-  Platform.OS !== 'ios'
-    ? TestIds.INTERSTITIAL // Android not configured yet — test ID as safe fallback
-    : __DEV__
-    ? TestIds.INTERSTITIAL
-    : PROD_INTERSTITIAL_IOS_ID;
+const adUnitId = __DEV__
+  ? TestIds.INTERSTITIAL
+  : Platform.select({
+      ios: process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS_ID ?? '',
+      android: process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ANDROID_ID ?? '',
+    }) ?? '';
 
-// Persists across modal opens within a session.
+// Persists across modal opens within a session. Resets on cold start (intentional).
 let sessionLogCount = 0;
 
 export function LogActivityModal({
@@ -49,14 +49,15 @@ export function LogActivityModal({
   const [selectedDate, setSelectedDate] = useState(new Date());
   const { translateY, panHandlers } = useSheetDismiss(handleClose);
 
-  // Interstitial — load once when the modal mounts (iOS only).
+  // Interstitial — load once when the modal mounts for new logs (not edits).
   const interstitialRef = useRef<InterstitialAd | null>(null);
   const interstitialLoaded = useRef(false);
 
   useEffect(() => {
-    if (Platform.OS !== 'ios') return;
+    // Don't preload in edit mode — ad will never fire for edits.
+    if (editingLogId !== undefined) return;
 
-    const ad = InterstitialAd.createForAdRequest(INTERSTITIAL_AD_UNIT_ID);
+    const ad = InterstitialAd.createForAdRequest(adUnitId);
     interstitialRef.current = ad;
     interstitialLoaded.current = false;
 
@@ -73,7 +74,7 @@ export function LogActivityModal({
       unsubscribeLoaded();
       unsubscribeClosed();
     };
-  }, []);
+  }, [editingLogId]);
 
   const currentTaskId = editingLogId
     ? logs.find((l) => l.id === editingLogId)?.taskId
@@ -85,11 +86,18 @@ export function LogActivityModal({
     onClose();
   }
 
-  function maybeShowInterstitial() {
-    // Only count new logs, not edits.
-    sessionLogCount += 1;
-    if (sessionLogCount % 3 === 0 && interstitialLoaded.current && interstitialRef.current) {
-      interstitialRef.current.show();
+  function maybeShowInterstitialAfterClose() {
+    // Only every 3rd new log, and only when frequency cap allows.
+    if (sessionLogCount % 3 === 0 && canShowAd() && interstitialLoaded.current && interstitialRef.current) {
+      // Small delay to let the modal close animation start before the ad appears.
+      setTimeout(() => {
+        try {
+          recordAdShown();
+          interstitialRef.current?.show();
+        } catch {
+          // Silently ignore — never show error UI to the user.
+        }
+      }, 16);
     }
   }
 
@@ -100,13 +108,16 @@ export function LogActivityModal({
         await updateLogInHouse(editingLogId, taskId);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         showToast('Atividade atualizada!', 'success');
+        handleClose();
       } else {
         await logTaskInHouse(taskId, selectedDate.toISOString());
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         showToast('Atividade registrada!', 'success');
-        maybeShowInterstitial();
+        // Increment only after a successful write.
+        sessionLogCount += 1;
+        handleClose();
+        maybeShowInterstitialAfterClose();
       }
-      handleClose();
     } finally {
       setLoadingId(null);
     }
@@ -118,8 +129,10 @@ export function LogActivityModal({
       await addTaskAndLogInHouse(name, points, selectedDate.toISOString());
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showToast('Tarefa criada e registrada!', 'success');
-      maybeShowInterstitial();
+      // Increment only after a successful write.
+      sessionLogCount += 1;
       handleClose();
+      maybeShowInterstitialAfterClose();
     } finally {
       setLoadingId(null);
     }
