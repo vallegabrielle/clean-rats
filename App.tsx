@@ -4,6 +4,7 @@ import { useFonts, Bungee_400Regular } from '@expo-google-fonts/bungee';
 import { NotoSansMono_400Regular } from '@expo-google-fonts/noto-sans-mono';
 import { Platform, View, ActivityIndicator } from 'react-native';
 import MobileAds, { requestTrackingTransparencyPermission } from 'react-native-google-mobile-ads';
+import { initInterstitialAd } from './src/utils/adManager';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -107,17 +108,27 @@ function AppContent() {
     registerForPushNotifications(user.uid).catch(console.error);
   }, [authLoading, isAuthenticated, user?.uid]);
 
-  // Start ATT + SDK init as early as possible (fire-and-forget).
-  // initInterstitialAd() is called from HomeScreen once we know the UI is ready.
   useEffect(() => {
     if (authLoading || !isAuthenticated || adsInitialized.current) return;
     adsInitialized.current = true;
-    if (Platform.OS === 'ios') {
-      requestTrackingTransparencyPermission()
+
+    const loadAd = () =>
+      Promise.race([
+        MobileAds().initialize(),
+        new Promise<void>((r) => setTimeout(r, 5000)),
+      ])
         .catch(() => {})
-        .finally(() => MobileAds().initialize().catch(() => {}));
+        .finally(() => initInterstitialAd());
+
+    if (Platform.OS === 'ios') {
+      Promise.race([
+        requestTrackingTransparencyPermission(),
+        new Promise<void>((r) => setTimeout(r, 3000)),
+      ])
+        .catch(() => {})
+        .finally(loadAd);
     } else {
-      MobileAds().initialize().catch(() => {});
+      loadAd();
     }
   }, [authLoading, isAuthenticated]);
 
