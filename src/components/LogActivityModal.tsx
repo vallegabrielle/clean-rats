@@ -68,9 +68,9 @@ export function LogActivityModal({
       } else {
         await logTaskInHouse(taskId, selectedDate.toISOString());
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        showToast('Atividade registrada!', 'success');
         // Increment only after a successful write.
         sessionLogCount += 1;
+        showToast(`Atividade registrada! (${sessionLogCount}/3)`, 'success');
         handleClose();
       }
     } finally {
@@ -83,9 +83,9 @@ export function LogActivityModal({
     try {
       await addTaskAndLogInHouse(name, points, selectedDate.toISOString());
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      showToast('Tarefa criada e registrada!', 'success');
       // Increment only after a successful write.
       sessionLogCount += 1;
+      showToast(`Tarefa criada e registrada! (${sessionLogCount}/3)`, 'success');
       handleClose();
     } finally {
       setLoadingId(null);

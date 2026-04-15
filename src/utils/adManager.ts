@@ -1,6 +1,7 @@
 import { InterstitialAd, AdEventType, TestIds } from 'react-native-google-mobile-ads';
 import { Platform } from 'react-native';
 import { canShowAd, recordAdShown } from './adFrequencyCap';
+import { showToast } from '../components/Toast';
 
 const adUnitId = __DEV__
   ? TestIds.INTERSTITIAL
@@ -18,9 +19,16 @@ function createAndLoad() {
   ad = InterstitialAd.createForAdRequest(adUnitId);
   adLoaded = false;
 
-  ad.addAdEventListener(AdEventType.LOADED, () => { adLoaded = true; });
+  ad.addAdEventListener(AdEventType.LOADED, () => {
+    adLoaded = true;
+    showToast('[AD] carregado', 'success');
+  });
   ad.addAdEventListener(AdEventType.CLOSED, () => { adLoaded = false; createAndLoad(); });
-  ad.addAdEventListener(AdEventType.ERROR, () => { adLoaded = false; });
+  ad.addAdEventListener(AdEventType.ERROR, (e: unknown) => {
+    adLoaded = false;
+    const msg = e instanceof Error ? e.message : String(e);
+    showToast(`[AD] erro: ${msg}`, 'error');
+  });
 
   ad.load();
 }
@@ -30,21 +38,26 @@ function createAndLoad() {
  * Preloads the interstitial immediately and auto-reloads after each show.
  */
 export function initInterstitialAd() {
+  showToast('[AD] init', 'success');
   createAndLoad();
 }
 
 /**
  * Shows the preloaded interstitial if the frequency cap allows and the ad is ready.
  * Returns true if the ad was shown, false if blocked by cap or no fill.
- * All errors are swallowed — never interrupts the user flow.
  */
 export function maybeShowInterstitial(): boolean {
-  if (!canShowAd() || !adLoaded || !ad) return false;
+  if (!canShowAd()) { showToast('[AD] bloqueado: cap', 'error'); return false; }
+  if (!adLoaded)    { showToast('[AD] nao carregado', 'error'); return false; }
+  if (!ad)          { showToast('[AD] sem instancia', 'error'); return false; }
   try {
     ad.show();
     recordAdShown();
+    showToast('[AD] exibindo!', 'success');
     return true;
-  } catch {
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    showToast(`[AD] show() falhou: ${msg}`, 'error');
     return false;
   }
 }
