@@ -2,7 +2,7 @@ import 'react-native-gesture-handler';
 import { useEffect, useRef, useState } from 'react';
 import { useFonts, Bungee_400Regular } from '@expo-google-fonts/bungee';
 import { NotoSansMono_400Regular } from '@expo-google-fonts/noto-sans-mono';
-import { Alert, Platform, View, ActivityIndicator } from 'react-native';
+import { Platform, View, ActivityIndicator } from 'react-native';
 import MobileAds from 'react-native-google-mobile-ads';
 import { initInterstitialAd } from './src/utils/adManager';
 import { NavigationContainer } from '@react-navigation/native';
@@ -116,10 +116,7 @@ function AppContent() {
       MobileAds().initialize(),
       new Promise<void>((r) => setTimeout(r, 5000)),
     ])
-      .catch((e: unknown) => {
-        const msg = e instanceof Error ? e.message : String(e);
-        Alert.alert('AD DEBUG', `MobileAds.initialize() falhou: ${msg}`);
-      })
+      .catch(() => {})
       .finally(() => initInterstitialAd());
   }, [authLoading, isAuthenticated]);
 

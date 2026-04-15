@@ -70,7 +70,7 @@ export function LogActivityModal({
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         // Increment only after a successful write.
         sessionLogCount += 1;
-        showToast(`Atividade registrada! (${sessionLogCount}/3)`, 'success');
+        showToast('Atividade registrada!', 'success');
         handleClose();
       }
     } finally {
@@ -85,7 +85,7 @@ export function LogActivityModal({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Increment only after a successful write.
       sessionLogCount += 1;
-      showToast(`Tarefa criada e registrada! (${sessionLogCount}/3)`, 'success');
+      showToast('Tarefa criada e registrada!', 'success');
       handleClose();
     } finally {
       setLoadingId(null);

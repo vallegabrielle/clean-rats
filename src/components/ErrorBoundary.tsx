@@ -3,25 +3,20 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { COLORS } from "../constants";
 
 type Props = { children: ReactNode };
-type State = { hasError: boolean; error: string; stack: string };
+type State = { hasError: boolean };
 
 export class ErrorBoundary extends Component<Props, State> {
-    state: State = { hasError: false, error: "", stack: "" };
+    state: State = { hasError: false };
 
-    static getDerivedStateFromError(error: Error): State {
-        return {
-            hasError: true,
-            error: error?.message ?? String(error),
-            stack: error?.stack ?? "",
-        };
+    static getDerivedStateFromError(): State {
+        return { hasError: true };
     }
 
     componentDidCatch(error: Error, info: { componentStack: string }) {
-        console.error("[ErrorBoundary] error:", error);
-        console.error("[ErrorBoundary] componentStack:", info.componentStack);
+        console.error("[ErrorBoundary]", error, info.componentStack);
     }
 
-    reset = () => this.setState({ hasError: false, error: "", stack: "" });
+    reset = () => this.setState({ hasError: false });
 
     render() {
         if (!this.state.hasError) return this.props.children;
@@ -29,8 +24,7 @@ export class ErrorBoundary extends Component<Props, State> {
         return (
             <View style={styles.container}>
                 <Text style={styles.title}>Algo deu errado</Text>
-                <Text style={styles.errorMsg}>{this.state.error}</Text>
-                <Text style={styles.stack} numberOfLines={12}>{this.state.stack}</Text>
+                <Text style={styles.message}>Ocorreu um erro inesperado.</Text>
                 <TouchableOpacity style={styles.button} onPress={this.reset}>
                     <Text style={styles.buttonText}>Tentar novamente</Text>
                 </TouchableOpacity>
@@ -53,18 +47,10 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontFamily: "Bungee_400Regular",
     },
-    errorMsg: {
-        color: COLORS.red,
+    message: {
+        color: COLORS.textMuted,
         fontSize: 13,
         textAlign: "center",
-        fontFamily: "NotoSansMono_400Regular",
-    },
-    stack: {
-        color: COLORS.textMuted,
-        fontSize: 10,
-        textAlign: "left",
-        fontFamily: "NotoSansMono_400Regular",
-        marginTop: 8,
     },
     button: {
         marginTop: 8,
