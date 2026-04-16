@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -15,6 +16,7 @@ import { COLORS } from '../constants';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function SetDisplayNameScreen() {
+  const { t } = useTranslation();
   const { updateDisplayName } = useAuth();
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,7 +31,7 @@ export default function SetDisplayNameScreen() {
     try {
       await updateDisplayName(trimmed);
     } catch {
-      setError('Não foi possível salvar o nome. Tente novamente.');
+      setError(t('displayName.saveError'));
       setLoading(false);
     }
   }
@@ -41,14 +43,14 @@ export default function SetDisplayNameScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.inner}
       >
-        <Text style={styles.title}>Como você se chama?</Text>
+        <Text style={styles.title}>{t('displayName.title')}</Text>
         <Text style={styles.subtitle}>
-          Seu nome aparece para os outros membros da toca.
+          {t('displayName.subtitle')}
         </Text>
 
         <TextInput
           style={styles.input}
-          placeholder="Seu nome"
+          placeholder={t('displayName.placeholder')}
           placeholderTextColor={COLORS.textMuted}
           value={name}
           onChangeText={setName}
@@ -68,7 +70,7 @@ export default function SetDisplayNameScreen() {
         >
           {loading
             ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.btnText}>Continuar</Text>
+            : <Text style={styles.btnText}>{t('displayName.continue')}</Text>
           }
         </TouchableOpacity>
       </KeyboardAvoidingView>

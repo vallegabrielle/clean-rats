@@ -7,7 +7,7 @@ import * as https from "https";
 admin.initializeApp();
 
 const db = admin.firestore();
-const MAX_HOUSES = 5;
+const MAX_HOUSES = 2;
 const MAX_NAME_LENGTH = 50;
 
 function sanitizeName(raw: string): string {

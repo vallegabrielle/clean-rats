@@ -11,6 +11,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHouseStore, selectActiveHouse } from '../contexts/HouseContext';
@@ -32,6 +33,7 @@ export function HouseSettingsModal({
   onClose: () => void;
   openToRequests?: boolean;
 }) {
+  const { t } = useTranslation();
   const house = useHouseStore(selectActiveHouse);
   const { user } = useAuth();
   const { renameHouse, updateHousePrize, updateHousePeriod, leaveHouse, removeMemberFromHouse, approveJoinRequest, rejectJoinRequest, logs } = useHouseStore(
@@ -53,7 +55,7 @@ export function HouseSettingsModal({
   async function handleShare() {
     if (!house) return;
     await Share.share({
-      message: `Entre na minha toca "${house.name}" no Clean Rats!\nCódigo: ${house.code}\nBaixe o app: https://apps.apple.com/app/id6761021340`,
+      message: t('house.inviteMessage', { name: house.name, code: house.code }) + '\nBaixe o app: https://apps.apple.com/app/id6761021340',
       url: `cleanrats://join/${house.code}`,
     });
   }
@@ -61,12 +63,12 @@ export function HouseSettingsModal({
   function handleLeave() {
     if (!house) return;
     Alert.alert(
-      'Sair da toca',
-      `Deseja sair de "${house.name}"?`,
+      t('house.leaveTitle'),
+      t('house.leaveConfirm', { name: house.name }),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Sair',
+          text: t('house.leaveConfirmBtn'),
           style: 'destructive',
           onPress: async () => {
             setLoadingLeave(true);
@@ -93,7 +95,7 @@ export function HouseSettingsModal({
           <View style={styles.handle} {...panHandlers} />
 
           <Text style={styles.title}>{house.name}</Text>
-          <Text style={styles.subtitle}>Código: {house.code}</Text>
+          <Text style={styles.subtitle}>{`${t('house.code')}: ${house.code}`}</Text>
 
           <View style={styles.options}>
             <MembersSection
@@ -111,7 +113,7 @@ export function HouseSettingsModal({
 
             <TouchableOpacity style={styles.option} onPress={handleShare}>
               <Text style={styles.optionIcon}>↑</Text>
-              <Text style={styles.optionText}>Compartilhar código</Text>
+              <Text style={styles.optionText}>{t('house.shareCode')}</Text>
               <Text style={styles.optionDetail}>{house.code}</Text>
             </TouchableOpacity>
 
@@ -131,7 +133,7 @@ export function HouseSettingsModal({
             >
               {loadingLeave
                 ? <ActivityIndicator color={COLORS.danger} size="small" />
-                : <Text style={styles.leaveBtnText}>Sair da toca</Text>
+                : <Text style={styles.leaveBtnText}>{t('house.leaveTitle')}</Text>
               }
             </TouchableOpacity>
           </View>

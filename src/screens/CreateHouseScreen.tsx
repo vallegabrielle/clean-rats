@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -31,6 +32,7 @@ const MAX_NAME_LENGTH = 100;
 const MAX_PRIZE_LENGTH = 100;
 
 export default function CreateHouseScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const { houses, addHouseToList } = useHouseStore(
     useShallow((s) => ({ houses: s.houses, addHouseToList: s.addHouseToList }))
@@ -69,11 +71,11 @@ export default function CreateHouseScreen() {
   function addCustomTask() {
     const pts = parseInt(customPoints, 10);
     if (isNaN(pts) || pts <= 0) {
-      setCustomFormError('Informe uma pontuação válida (mín. 1).');
+      setCustomFormError(t('tasks.pointsMin'));
       return;
     }
     if (pts > MAX_TASK_POINTS) {
-      setCustomFormError(`Pontuação máxima: ${MAX_TASK_POINTS}.`);
+      setCustomFormError(t('tasks.pointsMax', { max: MAX_TASK_POINTS }));
       return;
     }
     setCustomTasks((prev) => [...prev, { name: customName.trim(), points: pts, isDefault: false }]);
@@ -92,9 +94,9 @@ export default function CreateHouseScreen() {
       ...DEFAULT_TASKS.filter((_, i) => selectedDefaultIndices.has(i)),
       ...customTasks,
     ];
-    if (!houseName.trim()) return setError('Dê um nome para a toca.');
-    if (allTasks.length === 0) return setError('Adicione pelo menos uma tarefa.');
-    if (houses.length >= MAX_HOUSES) return setError(`Limite de ${MAX_HOUSES} tocas atingido.`);
+    if (!houseName.trim()) return setError(t('house.nameRequired'));
+    if (allTasks.length === 0) return setError(t('house.taskRequired'));
+    if (houses.length >= MAX_HOUSES) return setError(t('house.limitReached'));
 
     setError('');
     setLoading(true);
@@ -106,7 +108,7 @@ export default function CreateHouseScreen() {
       await addHouseToList(house);
       navigation.navigate('Home');
     } catch (e) {
-      setError('Erro ao criar a toca. Tente novamente.');
+      setError(t('house.createError'));
     } finally {
       setLoading(false);
     }
@@ -124,13 +126,13 @@ export default function CreateHouseScreen() {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <ScreenHeader title="Criar Toca" />
+        <ScreenHeader title={t('house.createTitle')} />
 
         <View style={styles.group}>
-          <Text style={styles.label}>Nome da toca</Text>
+          <Text style={styles.label}>{t('house.name')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Ex: República das Ratas"
+            placeholder={t('house.namePlaceholder')}
             placeholderTextColor={COLORS.textMuted}
             value={houseName}
             onChangeText={(v) => { setHouseName(v.slice(0, MAX_NAME_LENGTH)); setError(''); }}
@@ -139,10 +141,10 @@ export default function CreateHouseScreen() {
         </View>
 
         <View style={styles.group}>
-          <Text style={styles.label}>Prêmio do desafio</Text>
+          <Text style={styles.label}>{t('house.prize')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Ex: Jantar especial (opcional)"
+            placeholder={t('house.prizePlaceholder')}
             placeholderTextColor={COLORS.textMuted}
             value={prize}
             onChangeText={(v) => setPrize(v.slice(0, MAX_PRIZE_LENGTH))}
@@ -151,14 +153,14 @@ export default function CreateHouseScreen() {
         </View>
 
         <View style={styles.group}>
-          <Text style={styles.label}>Período de pontuação</Text>
+          <Text style={styles.label}>{t('period.label')}</Text>
           <View style={styles.toggle}>
             <TouchableOpacity
               style={[styles.toggleOption, period === 'weekly' && styles.toggleActive]}
               onPress={() => setPeriod('weekly')}
             >
               <Text style={[styles.toggleText, period === 'weekly' && styles.toggleTextActive]}>
-                Semanal
+                {t('period.weekly')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -166,7 +168,7 @@ export default function CreateHouseScreen() {
               onPress={() => setPeriod('biweekly')}
             >
               <Text style={[styles.toggleText, period === 'biweekly' && styles.toggleTextActive]}>
-                Quinzenal
+                {t('period.biweekly')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -174,21 +176,21 @@ export default function CreateHouseScreen() {
               onPress={() => setPeriod('monthly')}
             >
               <Text style={[styles.toggleText, period === 'monthly' && styles.toggleTextActive]}>
-                Mensal
+                {t('period.monthly')}
               </Text>
             </TouchableOpacity>
           </View>
           <Text style={styles.periodHint}>
-            {period === 'weekly' ? 'Reinicia todo domingo.' : period === 'biweekly' ? 'Reinicia nos dias 1° e 16.' : 'Reinicia todo dia 1°.'}
+            {t(`period.${period}Hint`)}
           </Text>
         </View>
 
         <View style={styles.group}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Tarefas</Text>
-            <Text style={styles.taskCount}>{selectedCount} selecionada{selectedCount !== 1 ? 's' : ''}</Text>
+            <Text style={styles.label}>{t('tasks.title')}</Text>
+            <Text style={styles.taskCount}>{t('tasks.selected', { count: selectedCount })}</Text>
           </View>
-          <Text style={styles.sectionHint}>Toque para selecionar ou desmarcar as sugestões.</Text>
+          <Text style={styles.sectionHint}>{t('house.taskHint')}</Text>
 
           <View style={styles.suggestionsGrid}>
             {DEFAULT_TASKS.map((task, i) => {
@@ -231,7 +233,7 @@ export default function CreateHouseScreen() {
             <View style={styles.customForm}>
               <TextInput
                 style={[styles.input, styles.customInput]}
-                placeholder="Nome da tarefa"
+                placeholder={t('tasks.name')}
                 placeholderTextColor={COLORS.textMuted}
                 value={customName}
                 onChangeText={(v) => { setCustomName(v.slice(0, MAX_NAME_LENGTH)); setCustomFormError(''); }}
@@ -239,7 +241,7 @@ export default function CreateHouseScreen() {
               />
               <TextInput
                 style={[styles.input, styles.customInput]}
-                placeholder="Pontuação (máx. 1000)"
+                placeholder={t('tasks.points')}
                 placeholderTextColor={COLORS.textMuted}
                 value={customPoints}
                 onChangeText={(v) => { setCustomPoints(v); setCustomFormError(''); }}
@@ -253,19 +255,19 @@ export default function CreateHouseScreen() {
                   onPress={addCustomTask}
                   disabled={!customName.trim() || !customPoints.trim()}
                 >
-                  <Text style={styles.confirmBtnText}>Adicionar</Text>
+                  <Text style={styles.confirmBtnText}>{t('common.add')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.cancelBtn}
                   onPress={() => { setShowCustomForm(false); setCustomName(''); setCustomPoints(''); setCustomFormError(''); }}
                 >
-                  <Text style={styles.cancelBtnText}>Cancelar</Text>
+                  <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ) : (
             <TouchableOpacity style={styles.addCustomBtn} onPress={() => setShowCustomForm(true)}>
-              <Text style={styles.addCustomBtnText}>+ Criar tarefa personalizada</Text>
+              <Text style={styles.addCustomBtnText}>{t('house.addCustomTask')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -273,7 +275,7 @@ export default function CreateHouseScreen() {
         {!!error && <Text style={styles.error}>{error}</Text>}
 
         <AnimatedButton
-          label="Criar Toca"
+          label={t('house.createTitle')}
           onPress={handleCreate}
           loading={loading}
           disabled={loading}

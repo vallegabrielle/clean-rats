@@ -1,5 +1,12 @@
 import { StyleSheet } from 'react-native';
 import { COLORS } from './constants';
+import i18n from './i18n';
+
+function toDisplayLocale(lang: string): string {
+  if (lang === 'pt') return 'pt-BR';
+  if (lang === 'en') return 'en-US';
+  return lang;
+}
 
 export const swipeStyles = StyleSheet.create({
   swipeActions: {
@@ -36,7 +43,8 @@ export const swipeStyles = StyleSheet.create({
 export function formatTime(iso: string): string {
   const date = new Date(iso);
   const now = new Date();
-  const hhmm = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const locale = toDisplayLocale(i18n.language);
+  const hhmm = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
   const isToday =
     date.getDate() === now.getDate() &&
@@ -50,9 +58,9 @@ export function formatTime(iso: string): string {
     date.getMonth() === yesterday.getMonth() &&
     date.getFullYear() === yesterday.getFullYear();
 
-  if (isToday) return `Hoje às ${hhmm}`;
-  if (isYesterday) return `Ontem às ${hhmm}`;
-  return `${date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} às ${hhmm}`;
+  if (isToday) return i18n.t('date.todayAt', { time: hhmm });
+  if (isYesterday) return i18n.t('date.yesterdayAt', { time: hhmm });
+  return date.toLocaleString(locale, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 export function getDateKey(iso: string): string {
@@ -63,6 +71,7 @@ export function getDateKey(iso: string): string {
 export function formatDateLabel(iso: string): string {
   const date = new Date(iso);
   const now = new Date();
+  const locale = toDisplayLocale(i18n.language);
 
   const isToday =
     date.getDate() === now.getDate() &&
@@ -76,12 +85,12 @@ export function formatDateLabel(iso: string): string {
     date.getMonth() === yesterday.getMonth() &&
     date.getFullYear() === yesterday.getFullYear();
 
-  if (isToday) return 'Hoje';
-  if (isYesterday) return 'Ontem';
+  if (isToday) return i18n.t('date.today');
+  if (isYesterday) return i18n.t('date.yesterday');
   if (date.getFullYear() === now.getFullYear()) {
-    return date.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
+    return date.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: 'short' });
   }
-  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+  return date.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 /**

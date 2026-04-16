@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { COLORS, MAX_TASK_POINTS } from '../../constants';
 
 const MAX_NAME = 100;
@@ -24,6 +25,7 @@ export function TaskForm({
   onCancel: () => void;
   loading: boolean;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(initial?.name ?? '');
   const [points, setPoints] = useState(initial?.points ?? '');
   const [error, setError] = useState('');
@@ -31,10 +33,10 @@ export function TaskForm({
   const canSubmit = name.trim().length > 0 && points.trim().length > 0;
 
   function handleConfirm() {
-    if (!name.trim()) return setError('Informe o nome da tarefa.');
+    if (!name.trim()) return setError(t('tasks.nameRequired'));
     const pts = parseInt(points, 10);
-    if (isNaN(pts) || pts <= 0) return setError('Pontuação mínima: 1.');
-    if (pts > MAX_TASK_POINTS) return setError(`Pontuação máxima: ${MAX_TASK_POINTS}.`);
+    if (isNaN(pts) || pts <= 0) return setError(t('tasks.pointsMin'));
+    if (pts > MAX_TASK_POINTS) return setError(t('tasks.pointsMax', { max: MAX_TASK_POINTS }));
     setError('');
     onConfirm(name.trim(), pts);
   }
@@ -43,7 +45,7 @@ export function TaskForm({
     <View style={styles.form}>
       <TextInput
         style={styles.input}
-        placeholder="Nome da tarefa"
+        placeholder={t('tasks.name')}
         placeholderTextColor={COLORS.textMuted}
         value={name}
         onChangeText={(v) => { setName(v.slice(0, MAX_NAME)); setError(''); }}
@@ -52,7 +54,7 @@ export function TaskForm({
       />
       <TextInput
         style={styles.input}
-        placeholder="Pontuação (máx. 1000)"
+        placeholder={t('tasks.points')}
         placeholderTextColor={COLORS.textMuted}
         value={points}
         onChangeText={(v) => { setPoints(v); setError(''); }}
@@ -69,12 +71,12 @@ export function TaskForm({
           {loading
             ? <ActivityIndicator color="#fff" size="small" />
             : <Text style={styles.confirmBtnText}>
-                {initial ? 'Salvar' : 'Adicionar'}
+                {initial ? t('common.save') : t('common.add')}
               </Text>
           }
         </TouchableOpacity>
         <TouchableOpacity style={styles.cancelBtn} onPress={onCancel} disabled={loading}>
-          <Text style={styles.cancelBtnText}>Cancelar</Text>
+          <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
         </TouchableOpacity>
       </View>
     </View>

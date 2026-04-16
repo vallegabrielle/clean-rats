@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -36,6 +37,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const house = useHouseStore(selectActiveHouse);
   const { loadingHouses: loadingHouse, removeLogFromHouse, logs } = useHouseStore(
@@ -68,11 +70,11 @@ export default function HomeScreen() {
 
   function handleDeleteLog(logId: string) {
     Alert.alert(
-      'Excluir atividade',
-      'Deseja excluir esta atividade?',
+      t('home.deleteActivity'),
+      t('home.deleteActivityConfirm'),
       [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Excluir', style: 'destructive', onPress: () => removeLogFromHouse(logId) },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.delete'), style: 'destructive', onPress: () => removeLogFromHouse(logId) },
       ],
     );
   }
@@ -155,15 +157,15 @@ export default function HomeScreen() {
       {!house ? (
         <View style={styles.emptyState}>
           <Image source={require('../../assets/red_rat.png')} style={styles.emptyIcon} />
-          <Text style={styles.emptyTitle}>Adicione uma toca</Text>
+          <Text style={styles.emptyTitle}>{t('house.addEmptyTitle')}</Text>
           <Text style={styles.emptySubtitle}>
-            Crie ou entre em uma toca para{'\n'}começar a organizar as tarefas.
+            {t('house.addEmptySubtitle')}
           </Text>
           <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('CreateHouse')}>
-            <Text style={styles.buttonText}>Criar uma toca</Text>
+            <Text style={styles.buttonText}>{t('house.createBtn')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('JoinHouse')}>
-            <Text style={styles.secondaryButtonText}>Entrar com código</Text>
+            <Text style={styles.secondaryButtonText}>{t('house.joinBtn')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -174,69 +176,69 @@ export default function HomeScreen() {
         <View style={styles.topBar}>
           <TouchableOpacity style={styles.topBarItem} onPress={() => navigation.navigate('Members')}>
             <Text style={styles.topBarValue}>{house.members.length}</Text>
-            <Text style={styles.topBarLabel}>membros</Text>
+            <Text style={styles.topBarLabel}>{t('home.membersLabel')}</Text>
           </TouchableOpacity>
           <View style={styles.topBarDivider} />
           <TouchableOpacity style={styles.topBarItem} onPress={() => navigation.navigate('Tasks')}>
             <Text style={styles.topBarValue}>{house.tasks.length}</Text>
-            <Text style={styles.topBarLabel}>tarefas</Text>
+            <Text style={styles.topBarLabel}>{t('home.tasksLabel')}</Text>
           </TouchableOpacity>
           <View style={styles.topBarDivider} />
           <TouchableOpacity style={styles.topBarItem} onPress={() => scrollViewRef.current?.scrollTo({ y: feedY.current, animated: true })}>
             <Text style={styles.topBarValue}>{logs.length}</Text>
-            <Text style={styles.topBarLabel}>atividades</Text>
+            <Text style={styles.topBarLabel}>{t('home.activitiesLabel')}</Text>
           </TouchableOpacity>
           <View style={styles.topBarDivider} />
           <TouchableOpacity style={styles.topBarItem} onPress={() => navigation.navigate('History')}>
             <Text style={styles.topBarValue}>{(house.history ?? []).length}</Text>
-            <Text style={styles.topBarLabel}>histórico</Text>
+            <Text style={styles.topBarLabel}>{t('home.historyLabel')}</Text>
           </TouchableOpacity>
         </View>
         <ScrollView ref={scrollViewRef} contentContainerStyle={styles.feed}>
           {/* Scores */}
           {scores.length > 0 && (
             <View style={styles.scoresSection}>
-              <Text style={styles.feedLabel}>Placar</Text>
+              <Text style={styles.feedLabel}>{t('home.scoreTitle')}</Text>
               <View style={styles.scoresRow}>
                 {myScore && (
                   <View style={styles.scoreCard}>
-                    <Text style={styles.scoreCardLabel} numberOfLines={1}>{myRank > 0 ? `${rankLabel} ` : ''}Meus pontos</Text>
+                    <Text style={styles.scoreCardLabel} numberOfLines={1}>{myRank > 0 ? `${rankLabel} ` : ''}{t('home.myPoints')}</Text>
                     <Text style={styles.scoreCardValue} numberOfLines={1}>{myScore.points}</Text>
-                    <Text style={styles.scoreCardSub} numberOfLines={1}>{myScore.completedTasks} atividade(s)</Text>
+                    <Text style={styles.scoreCardSub} numberOfLines={1}>{t('home.activity', { count: myScore.completedTasks })}</Text>
                   </View>
                 )}
                 {logs.length === 0 ? (
                   <View style={styles.scoreCard}>
-                    <Text style={styles.scoreCardLabel} numberOfLines={1}>Nenhuma atividade</Text>
-                    <Text style={[styles.scoreCardSub, { marginTop: 6 }]}>🚀 Registre a primeira tarefa!</Text>
+                    <Text style={styles.scoreCardLabel} numberOfLines={1}>{t('home.noActivity')}</Text>
+                    <Text style={[styles.scoreCardSub, { marginTop: 6 }]}>{t('home.firstActivity')}</Text>
                   </View>
                 ) : (
                   <>
                     {isTied && (
                       <View style={[styles.scoreCard, styles.scoreCardLeader]}>
-                        <Text style={styles.scoreCardLabel} numberOfLines={1}>🏆 Empate!</Text>
+                        <Text style={styles.scoreCardLabel} numberOfLines={1}>{`🏆 ${t('home.tie')}`}</Text>
                         <Text style={styles.scoreCardValue} numberOfLines={1}>{topPoints} pts</Text>
                         <Text style={styles.scoreCardSub} numberOfLines={1}>{leaders.map((l) => l.member.name).join(' & ')}</Text>
                       </View>
                     )}
                     {leader && leader.member.id !== myMember?.id && (
                       <View style={[styles.scoreCard, styles.scoreCardLeader]}>
-                        <Text style={styles.scoreCardLabel} numberOfLines={1}>🏆 Líder</Text>
+                        <Text style={styles.scoreCardLabel} numberOfLines={1}>{`🏆 ${t('home.leader')}`}</Text>
                         <Text style={styles.scoreCardValue} numberOfLines={1}>{leader.points}</Text>
                         <Text style={styles.scoreCardSub} numberOfLines={1}>{leader.member.name}</Text>
                       </View>
                     )}
                     {leader && leader.member.id === myMember?.id && scores.length === 1 && (
                       <View style={[styles.scoreCard, styles.scoreCardLeader]}>
-                        <Text style={styles.scoreCardLabel} numberOfLines={1}>🏆 Você é o líder!</Text>
+                        <Text style={styles.scoreCardLabel} numberOfLines={1}>{`🏆 ${t('home.youLead')}`}</Text>
                         <Text style={styles.scoreCardValue} numberOfLines={1}>{leader.points} pts</Text>
                       </View>
                     )}
                     {leader && leader.member.id === myMember?.id && scores.length > 1 && (
                       <View style={[styles.scoreCard, styles.scoreCardLeader]}>
-                        <Text style={styles.scoreCardLabel} numberOfLines={1}>🏆 Você lidera!</Text>
+                        <Text style={styles.scoreCardLabel} numberOfLines={1}>{`🏆 ${t('home.youLeadAhead')}`}</Text>
                         <Text style={styles.scoreCardValue} numberOfLines={1}>{leader.points} pts</Text>
-                        <Text style={styles.scoreCardSub} numberOfLines={1}>à frente de {scores.find((s) => s.points < leader.points)?.member.name}</Text>
+                        <Text style={styles.scoreCardSub} numberOfLines={1}>{t('home.aheadOf', { name: scores.find((s) => s.points < leader.points)?.member.name ?? '' })}</Text>
                       </View>
                     )}
                   </>
@@ -249,12 +251,12 @@ export default function HomeScreen() {
           <PeriodProgressBar house={house} />
 
           {/* Feed label */}
-          <Text style={styles.feedLabel} onLayout={(e) => { feedY.current = e.nativeEvent.layout.y; }}>Atividades recentes</Text>
+          <Text style={styles.feedLabel} onLayout={(e) => { feedY.current = e.nativeEvent.layout.y; }}>{t('home.recentActivity')}</Text>
 
           {logs.length === 0 ? (
             <EmptyState
               icon="🧹"
-              text={"Nenhuma atividade ainda.\nToque em + para registrar."}
+              text={t('home.noActivityHint')}
               style={styles.emptyFeed}
             />
           ) : (
@@ -286,7 +288,7 @@ export default function HomeScreen() {
                   onPress={() => setVisibleCount((c) => c + 30)}
                 >
                   <Text style={styles.loadMoreText}>
-                    Carregar mais ({logs.length - visibleCount})
+                    {t('home.loadMoreCount', { count: logs.length - visibleCount })}
                   </Text>
                 </TouchableOpacity>
               )}

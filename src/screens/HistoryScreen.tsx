@@ -1,32 +1,42 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../constants';
 import { useHouseStore, selectActiveHouse } from '../contexts/HouseContext';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { EmptyState } from '../components/EmptyState';
 import { PeriodRecord, PeriodScore } from '../types';
 import { AdBanner } from '../components/AdBanner';
+import i18n from '../i18n';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
+
+function toDisplayLocale(lang: string): string {
+  if (lang === 'pt') return 'pt-BR';
+  if (lang === 'en') return 'en-US';
+  return lang;
+}
 
 function formatDateRange(start: string, end: string): string {
   const s = new Date(start);
   const e = new Date(end);
+  const locale = toDisplayLocale(i18n.language);
   const opts: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
-  const sStr = s.toLocaleDateString('pt-BR', opts);
-  const eStr = e.toLocaleDateString('pt-BR', opts);
+  const sStr = s.toLocaleDateString(locale, opts);
+  const eStr = e.toLocaleDateString(locale, opts);
   const year = e.getFullYear();
   return `${sStr} – ${eStr}, ${year}`;
 }
 
 function PeriodCard({ record, index }: { record: PeriodRecord; index: number }) {
+  const { t } = useTranslation();
   const sorted = [...record.scores].sort((a, b) => b.points - a.points);
 
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.periodLabel}>Período {index}</Text>
+        <Text style={styles.periodLabel}>{t('history.period', { index })}</Text>
         <Text style={styles.periodDates}>{formatDateRange(record.periodStart, record.periodEnd)}</Text>
         {!!record.prize && (
           <Text style={styles.periodPrize}>🏆 {record.prize}</Text>
@@ -34,7 +44,7 @@ function PeriodCard({ record, index }: { record: PeriodRecord; index: number }) 
       </View>
 
       {sorted.length === 0 ? (
-        <Text style={styles.emptyText}>Nenhum registro</Text>
+        <Text style={styles.emptyText}>{t('history.noRecords')}</Text>
       ) : (
         sorted.map((score: PeriodScore, i: number) => {
           const rank = sorted.filter((s) => s.points > score.points).length;
@@ -47,7 +57,7 @@ function PeriodCard({ record, index }: { record: PeriodRecord; index: number }) 
                 <Text style={styles.pointsValue}>{score.points}</Text>
                 <Text style={styles.pointsLabel}>pts</Text>
               </View>
-              <Text style={styles.tasksCount}>{score.completedTasks} tarefa(s)</Text>
+              <Text style={styles.tasksCount}>{t('history.task', { count: score.completedTasks })}</Text>
             </View>
           );
         })
@@ -57,6 +67,7 @@ function PeriodCard({ record, index }: { record: PeriodRecord; index: number }) 
 }
 
 export default function HistoryScreen() {
+  const { t } = useTranslation();
   const house = useHouseStore(selectActiveHouse);
 
   const history = house ? [...(house.history ?? [])].reverse() : [];
@@ -65,14 +76,14 @@ export default function HistoryScreen() {
     <SafeAreaView style={styles.root}>
       <StatusBar style="light" />
 
-      <ScreenHeader title="Histórico" />
+      <ScreenHeader title={t('history.title')} />
 
       <View style={styles.content}>
         {history.length === 0 ? (
           <EmptyState
             icon="🐀"
-            title="Nada por aqui ainda"
-            text={"Cada período fechado vira um capítulo\nda história da toca. O primeiro\nainda está por vir!"}
+            title={t('history.noPeriods')}
+            text={t('history.noPeriodsSubtitle')}
           />
         ) : (
           <ScrollView contentContainerStyle={styles.list}>

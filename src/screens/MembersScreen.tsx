@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Alert, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -36,6 +37,7 @@ function MemberRow({
   onOpen: (ref: Swipeable) => void;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation();
   const swipeRef = useRef<Swipeable>(null);
   const hintAnim = useRef(new Animated.Value(0)).current;
   const hasAnimated = useRef(false);
@@ -66,9 +68,9 @@ function MemberRow({
         </View>
         <View style={styles.rankInfo}>
           <Text style={styles.rankName} numberOfLines={1}>
-            {memberName} (eu)
+            {memberName} {t('members.me')}
           </Text>
-          <Text style={styles.rankSub}>{completedTasks} tarefa(s)</Text>
+          <Text style={styles.rankSub}>{t('members.task', { count: completedTasks })}</Text>
         </View>
         <View style={styles.rankPoints}>
           <Text style={styles.rankPointsValue}>{points}</Text>
@@ -89,11 +91,11 @@ function MemberRow({
               onPress={() => {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                 Alert.alert(
-                  'Remover membro',
-                  `Deseja remover "${memberName}" da toca?`,
+                  t('members.removeTitle'),
+                  t('members.removeConfirm', { name: memberName }),
                   [
-                    { text: 'Cancelar', style: 'cancel', onPress: () => swipeRef.current?.close() },
-                    { text: 'Remover', style: 'destructive', onPress: onRemove },
+                    { text: t('common.cancel'), style: 'cancel', onPress: () => swipeRef.current?.close() },
+                    { text: t('common.remove'), style: 'destructive', onPress: onRemove },
                   ],
                 );
               }}
@@ -117,7 +119,7 @@ function MemberRow({
           </View>
           <View style={styles.rankInfo}>
             <Text style={styles.rankName} numberOfLines={1}>{memberName}</Text>
-            <Text style={styles.rankSub}>{completedTasks} tarefa(s)</Text>
+            <Text style={styles.rankSub}>{t('members.task', { count: completedTasks })}</Text>
           </View>
           <View style={styles.rankPoints}>
             <Text style={styles.rankPointsValue}>{points}</Text>
@@ -130,6 +132,7 @@ function MemberRow({
 }
 
 export default function MembersScreen() {
+  const { t } = useTranslation();
   const house = useHouseStore(selectActiveHouse);
   const { removeMemberFromHouse, logs } = useHouseStore(
     useShallow((s) => ({ removeMemberFromHouse: s.removeMemberFromHouse, logs: s.logs }))
@@ -155,13 +158,13 @@ export default function MembersScreen() {
     <SafeAreaView style={styles.root}>
       <StatusBar style="light" />
 
-      <ScreenHeader title="Membros" />
+      <ScreenHeader title={t('members.title')} />
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.sectionLabel}>Placar do período</Text>
+        <Text style={styles.sectionLabel}>{t('members.leaderboard')}</Text>
 
         {scores.length === 0 ? (
-          <EmptyState text="Nenhum membro encontrado." style={styles.emptyCard} />
+          <EmptyState text={t('members.notFound')} style={styles.emptyCard} />
         ) : (
           <View style={styles.rankList}>
             {scores.map((s, i) => (

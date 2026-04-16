@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     View,
     Text,
@@ -24,6 +25,7 @@ const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_I
 const GOOGLE_REDIRECT_URI      = process.env.EXPO_PUBLIC_GOOGLE_REDIRECT_URI!;
 
 export default function LoginScreen() {
+    const { t } = useTranslation();
     const { loginWithGoogle, loginWithApple } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -39,16 +41,16 @@ export default function LoginScreen() {
         if (response?.type === "success") {
             const idToken = response.params.id_token;
             if (!idToken) {
-                setError("Não foi possível obter o token do Google.");
+                setError(t('login.googleTokenError'));
                 return;
             }
             setLoading(true);
             loginWithGoogle(idToken).catch(() => {
-                setError("Erro ao entrar com Google. Tente novamente.");
+                setError(t('login.googleError'));
                 setLoading(false);
             });
         } else if (response?.type === "error") {
-            setError("Erro ao entrar com Google. Tente novamente.");
+            setError(t('login.googleError'));
         }
     }, [response]);
 
@@ -60,7 +62,7 @@ export default function LoginScreen() {
                 <Image source={require('../../assets/cleaner_rat.png')} style={styles.logo} />
                 <Text style={styles.title}>Clean Rats</Text>
                 <Text style={styles.subtitle}>
-                    Organize sua toca com a galera
+                    {t('login.tagline')}
                 </Text>
             </View>
 
@@ -77,7 +79,7 @@ export default function LoginScreen() {
                             disabled={!request}
                         >
                             <AntDesign name="google" size={22} color="#4285F4" />
-                            <Text style={styles.googleBtnText}>Entrar com Google</Text>
+                            <Text style={styles.googleBtnText}>{t('login.googleBtn')}</Text>
                         </TouchableOpacity>
 
                         {Platform.OS === "ios" && (
@@ -92,14 +94,14 @@ export default function LoginScreen() {
                                     } catch (e: any) {
                                         if (e.code !== "ERR_REQUEST_CANCELED") {
                                             console.error("[Apple Login] code:", e.code, "message:", e.message);
-                                            setError("Erro ao entrar com Apple. Tente novamente.");
+                                            setError(t('login.appleError'));
                                         }
                                         setLoading(false);
                                     }
                                 }}
                             >
                                 <AntDesign name="apple" size={22} color="#fff" />
-                                <Text style={styles.appleBtnText}>Entrar com Apple</Text>
+                                <Text style={styles.appleBtnText}>{t('login.appleBtn')}</Text>
                             </TouchableOpacity>
                         )}
                     </>

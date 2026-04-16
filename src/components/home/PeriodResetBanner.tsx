@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../constants';
 import { MemberScore } from '../../types';
 import { useHouseStore } from '../../contexts/HouseContext';
@@ -14,6 +15,7 @@ interface Props {
 }
 
 function BannerContent({ scores, prize, onDismiss }: Omit<Props, 'houseId'>) {
+  const { t } = useTranslation();
   const translateY = useRef(new Animated.Value(-80)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -37,14 +39,14 @@ function BannerContent({ scores, prize, onDismiss }: Omit<Props, 'houseId'>) {
   return (
     <Animated.View style={[styles.banner, { transform: [{ translateY }], opacity }]}>
       <View style={styles.topRow}>
-        <Text style={styles.title}>Período encerrado!</Text>
+        <Text style={styles.title}>{t('period.closed')}</Text>
         <TouchableOpacity onPress={onDismiss} hitSlop={12}>
           <Text style={styles.close}>×</Text>
         </TouchableOpacity>
       </View>
-      <Text style={styles.subtitle}>Resultado do período anterior</Text>
+      <Text style={styles.subtitle}>{t('period.previousResult')}</Text>
       {!!prize && (
-        <Text style={styles.prize}>🏆 Prêmio: {prize}</Text>
+        <Text style={styles.prize}>{`🏆 ${t('period.prize')}: ${prize}`}</Text>
       )}
       {top3.map((s, i) => (
         <View key={s.member.id} style={styles.row}>
@@ -85,7 +87,6 @@ export function PeriodResetBanner() {
 
   return (
     <BannerContent
-      houseId={lastResetInfo.houseId}
       scores={lastResetInfo.scores}
       prize={lastResetInfo.prize}
       onDismiss={clearResetInfo}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../constants';
 import { styles } from './styles';
 
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export function RenameOption({ currentName, onRename }: Props) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
@@ -28,7 +30,7 @@ export function RenameOption({ currentName, onRename }: Props) {
   }
 
   async function confirm() {
-    if (!input.trim()) return setError('Informe o nome da toca.');
+    if (!input.trim()) return setError(t('house.nameRequired'));
     setLoading(true);
     try {
       await onRename(input.trim());
@@ -42,7 +44,7 @@ export function RenameOption({ currentName, onRename }: Props) {
     return (
       <TouchableOpacity style={styles.option} onPress={open}>
         <Text style={styles.optionIcon}>✎</Text>
-        <Text style={styles.optionText}>Alterar nome</Text>
+        <Text style={styles.optionText}>{t('house.rename')}</Text>
       </TouchableOpacity>
     );
   }
@@ -56,7 +58,7 @@ export function RenameOption({ currentName, onRename }: Props) {
         maxLength={MAX_NAME}
         autoFocus
         placeholderTextColor={COLORS.textMuted}
-        placeholder="Nome da toca"
+        placeholder={t('house.name')}
       />
       {!!error && <Text style={styles.error}>{error}</Text>}
       <View style={styles.formActions}>
@@ -67,11 +69,11 @@ export function RenameOption({ currentName, onRename }: Props) {
         >
           {loading
             ? <ActivityIndicator color="#fff" size="small" />
-            : <Text style={styles.confirmBtnText}>Salvar</Text>
+            : <Text style={styles.confirmBtnText}>{t('common.save')}</Text>
           }
         </TouchableOpacity>
         <TouchableOpacity style={styles.cancelBtn} onPress={cancel} disabled={loading}>
-          <Text style={styles.cancelBtnText}>Cancelar</Text>
+          <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
         </TouchableOpacity>
       </View>
     </View>

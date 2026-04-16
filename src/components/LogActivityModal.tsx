@@ -1,5 +1,6 @@
 import { Modal, View, Text, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +25,7 @@ export function LogActivityModal({
   onClose: () => void;
   editingLogId?: string;
 }) {
+  const { t } = useTranslation();
   const house = useHouseStore(selectActiveHouse);
   const { logTaskInHouse, updateLogInHouse, addTaskAndLogInHouse, logs } = useHouseStore(
     useShallow((s) => ({
@@ -63,14 +65,14 @@ export function LogActivityModal({
       if (editingLogId) {
         await updateLogInHouse(editingLogId, taskId);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        showToast('Atividade atualizada!', 'success');
+        showToast(t('logActivity.updated'), 'success');
         handleClose();
       } else {
         await logTaskInHouse(taskId, selectedDate.toISOString());
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         // Increment only after a successful write.
         sessionLogCount += 1;
-        showToast('Atividade registrada!', 'success');
+        showToast(t('logActivity.registered'), 'success');
         handleClose();
       }
     } finally {
@@ -85,7 +87,7 @@ export function LogActivityModal({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Increment only after a successful write.
       sessionLogCount += 1;
-      showToast('Tarefa criada e registrada!', 'success');
+      showToast(t('logActivity.taskCreated'), 'success');
       handleClose();
     } finally {
       setLoadingId(null);
@@ -101,7 +103,7 @@ export function LogActivityModal({
         style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}
       >
         <View style={styles.handle} />
-        <Text style={styles.title}>{editingLogId ? 'Editar atividade' : 'Registrar atividade'}</Text>
+        <Text style={styles.title}>{editingLogId ? t('logActivity.editTitle') : t('logActivity.title')}</Text>
 
         {!editingLogId && (
           <DateSelector
@@ -132,7 +134,7 @@ export function LogActivityModal({
                 onPress={() => setShowCustomForm(true)}
                 disabled={loadingId !== null}
               >
-                <Text style={styles.customBtnText}>+ Tarefa personalizada</Text>
+                <Text style={styles.customBtnText}>{t('logActivity.customTask')}</Text>
               </TouchableOpacity>
             )
           )}

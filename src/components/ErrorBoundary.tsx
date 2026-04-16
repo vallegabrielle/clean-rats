@@ -1,6 +1,7 @@
 import { Component, ReactNode } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { COLORS } from "../constants";
+import i18n from "../i18n";
 
 type Props = { children: ReactNode };
 type State = { hasError: boolean };
@@ -23,10 +24,10 @@ export class ErrorBoundary extends Component<Props, State> {
 
         return (
             <View style={styles.container}>
-                <Text style={styles.title}>Algo deu errado</Text>
-                <Text style={styles.message}>Ocorreu um erro inesperado.</Text>
+                <Text style={styles.title}>{i18n.t('errors.generic')}</Text>
+                <Text style={styles.message}>{i18n.t('errors.unexpected')}</Text>
                 <TouchableOpacity style={styles.button} onPress={this.reset}>
-                    <Text style={styles.buttonText}>Tentar novamente</Text>
+                    <Text style={styles.buttonText}>{i18n.t('common.retry')}</Text>
                 </TouchableOpacity>
             </View>
         );

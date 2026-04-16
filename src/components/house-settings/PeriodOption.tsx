@@ -1,20 +1,9 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../constants';
 import { Period } from '../../types';
 import { styles } from './styles';
-
-const PERIOD_OPTIONS: { value: Period; label: string }[] = [
-  { value: 'weekly', label: 'Semanal' },
-  { value: 'biweekly', label: 'Quinzenal' },
-  { value: 'monthly', label: 'Mensal' },
-];
-
-const PERIOD_LABELS: Record<Period, string> = {
-  weekly: 'Semanal',
-  biweekly: 'Quinzenal',
-  monthly: 'Mensal',
-};
 
 type Props = {
   currentPeriod: Period;
@@ -23,20 +12,33 @@ type Props = {
 };
 
 export function PeriodOption({ currentPeriod, logCount, onUpdate }: Props) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const periodOptions: { value: Period; label: string }[] = [
+    { value: 'weekly', label: t('period.weekly') },
+    { value: 'biweekly', label: t('period.biweekly') },
+    { value: 'monthly', label: t('period.monthly') },
+  ];
+
+  const periodLabels: Record<Period, string> = {
+    weekly: t('period.weekly'),
+    biweekly: t('period.biweekly'),
+    monthly: t('period.monthly'),
+  };
 
   async function confirmAndSelect(period: Period) {
     if (period === currentPeriod) { setEditing(false); return; }
 
     const message = logCount > 0
-      ? `O período atual será encerrado e ${logCount} registro${logCount === 1 ? '' : 's'} será${logCount === 1 ? '' : 'ão'} arquivado${logCount === 1 ? '' : 's'} no histórico.\n\nDeseja continuar?`
-      : 'O período atual será reiniciado. Deseja continuar?';
+      ? t('settings.period.changeWarning', { count: logCount })
+      : t('settings.period.changeWarningZero');
 
-    Alert.alert('Alterar período', message, [
-      { text: 'Cancelar', style: 'cancel' },
+    Alert.alert(t('settings.period.changeTitle'), message, [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Alterar',
+        text: t('settings.period.change'),
         style: 'destructive',
         onPress: async () => {
           setLoading(true);
@@ -55,8 +57,8 @@ export function PeriodOption({ currentPeriod, logCount, onUpdate }: Props) {
     return (
       <TouchableOpacity style={styles.option} onPress={() => setEditing(true)}>
         <Text style={styles.optionIcon}>⏱</Text>
-        <Text style={styles.optionText}>Período</Text>
-        <Text style={styles.optionDetail}>{PERIOD_LABELS[currentPeriod]}</Text>
+        <Text style={styles.optionText}>{t('period.current')}</Text>
+        <Text style={styles.optionDetail}>{periodLabels[currentPeriod]}</Text>
       </TouchableOpacity>
     );
   }
@@ -67,7 +69,7 @@ export function PeriodOption({ currentPeriod, logCount, onUpdate }: Props) {
         ? <ActivityIndicator color={COLORS.red} style={{ paddingVertical: 14 }} />
         : (
           <View style={styles.periodOptions}>
-            {PERIOD_OPTIONS.map((opt) => (
+            {periodOptions.map((opt) => (
               <TouchableOpacity
                 key={opt.value}
                 style={[styles.periodOption, currentPeriod === opt.value && styles.periodOptionActive]}
@@ -83,7 +85,7 @@ export function PeriodOption({ currentPeriod, logCount, onUpdate }: Props) {
       }
       {!loading && (
         <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditing(false)}>
-          <Text style={styles.cancelBtnText}>Cancelar</Text>
+          <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
         </TouchableOpacity>
       )}
     </View>

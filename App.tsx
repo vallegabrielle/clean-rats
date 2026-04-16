@@ -1,3 +1,4 @@
+import './src/i18n';
 import 'react-native-gesture-handler';
 import { useEffect, useRef, useState } from 'react';
 import { useFonts, Bungee_400Regular } from '@expo-google-fonts/bungee';

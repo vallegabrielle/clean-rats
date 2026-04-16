@@ -1,4 +1,6 @@
 import { useRef, useState, useCallback, type ReactElement } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
     View,
     Text,
@@ -48,64 +50,59 @@ type Slide = ImageSlide | CustomSlide;
 
 // ─── Slide data ───────────────────────────────────────────────────────────────
 
-const SLIDES: Slide[] = [
-    {
-        key: "welcome",
-        kind: "image",
-        image: require("../../assets/cleaner_rat.png"),
-        title: "Bem-vindo ao\nClean Rats",
-        subtitle:
-            "Transforme a divisão de tarefas\ndomésticas em uma competição\nsaudável com quem você mora!",
-    },
-    {
-        key: "toca",
-        kind: "image",
-        image: require("../../assets/red_rat.png"),
-        title: "Crie ou entre\nem uma toca",
-        subtitle:
-            "Una sua toca, configure as\ntarefas e defina um prêmio para\nmotivar todo mundo.",
-    },
-    {
-        key: "convite",
-        kind: "custom",
-        visual: InviteMock,
-        title: "Chame sua\ngalera",
-        subtitle:
-            "Cada toca tem um código único.\nCompartilhe com quem vai dividir\nas tarefas com você.",
-    },
-    {
-        key: "registro",
-        kind: "custom",
-        visual: RegisterMock,
-        title: "Registre o que\nvocê fez",
-        subtitle:
-            "Marque tarefas concluídas e acumule\npontos. Deslize um registro para\neditar ou excluir.",
-    },
-    {
-        key: "periodo",
-        kind: "custom",
-        visual: PeriodMock,
-        title: "Ciclos e\nprêmios",
-        subtitle:
-            "Os pontos reiniciam a cada período.\nQuem terminar em 1º leva o prêmio\nque a toca definiu.",
-    },
-    {
-        key: "navegacao",
-        kind: "custom",
-        visual: TopBarMock,
-        title: "Tudo ao alcance\nde um toque",
-        subtitle:
-            'Os botões no topo levam para membros, tarefas, atividades e histórico.\n \nO "···" abre as configurações da toca.',
-    },
-    {
-        key: "ranking",
-        kind: "custom",
-        visual: RankingMock,
-        title: "Dispute o\nranking",
-        subtitle:
-            "Acompanhe quem está na frente e\nconsulte o histórico de períodos\npassados.",
-    },
-];
+function getSlides(t: TFunction): Slide[] {
+    return [
+        {
+            key: "welcome",
+            kind: "image",
+            image: require("../../assets/cleaner_rat.png"),
+            title: t("onboarding.welcome"),
+            subtitle: t("onboarding.welcomeSubtitle"),
+        },
+        {
+            key: "toca",
+            kind: "image",
+            image: require("../../assets/red_rat.png"),
+            title: t("onboarding.slide1Title"),
+            subtitle: t("onboarding.slide1Subtitle"),
+        },
+        {
+            key: "convite",
+            kind: "custom",
+            visual: InviteMock,
+            title: t("onboarding.slide2Title"),
+            subtitle: t("onboarding.slide2Subtitle"),
+        },
+        {
+            key: "registro",
+            kind: "custom",
+            visual: RegisterMock,
+            title: t("onboarding.slide3Title"),
+            subtitle: t("onboarding.slide3Subtitle"),
+        },
+        {
+            key: "periodo",
+            kind: "custom",
+            visual: PeriodMock,
+            title: t("onboarding.slide4Title"),
+            subtitle: t("onboarding.slide4Subtitle"),
+        },
+        {
+            key: "navegacao",
+            kind: "custom",
+            visual: TopBarMock,
+            title: t("onboarding.slide5Title"),
+            subtitle: t("onboarding.slide5Subtitle"),
+        },
+        {
+            key: "ranking",
+            kind: "custom",
+            visual: RankingMock,
+            title: t("onboarding.slide6Title"),
+            subtitle: t("onboarding.slide6Subtitle"),
+        },
+    ];
+}
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -114,6 +111,8 @@ type Props = {
 };
 
 export default function OnboardingScreen({ onDone }: Props) {
+    const { t } = useTranslation();
+    const SLIDES = getSlides(t);
     const [currentIndex, setCurrentIndex] = useState(0);
     const listRef = useRef<FlatList<Slide>>(null);
     const scrollX = useRef(new Animated.Value(0)).current;
@@ -165,7 +164,7 @@ export default function OnboardingScreen({ onDone }: Props) {
                         onPress={finish}
                         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
-                        <Text style={styles.skipText}>Pular</Text>
+                        <Text style={styles.skipText}>{t("common.skip")}</Text>
                     </TouchableOpacity>
                 ) : (
                     <View />
@@ -229,7 +228,7 @@ export default function OnboardingScreen({ onDone }: Props) {
 
                 <TouchableOpacity style={styles.btn} onPress={goNext}>
                     <Text style={styles.btnText}>
-                        {isLast ? "Começar" : "Próximo"}
+                        {isLast ? t("common.start") : t("common.next")}
                     </Text>
                 </TouchableOpacity>
             </View>

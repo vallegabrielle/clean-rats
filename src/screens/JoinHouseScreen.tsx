@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -21,6 +22,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList, 'JoinHouse'>;
 type RouteType = RouteProp<RootStackParamList, 'JoinHouse'>;
 
 export default function JoinHouseScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteType>();
   const joinHouseByCode = useHouseStore((s) => s.joinHouseByCode);
@@ -31,7 +33,7 @@ export default function JoinHouseScreen() {
   const [pendingHouseName, setPendingHouseName] = useState('');
 
   async function handleJoin() {
-    if (!code.trim()) return setError('Informe o código da toca.');
+    if (!code.trim()) return setError(t('join.codePrompt'));
     setError('');
     setLoading(true);
     try {
@@ -41,11 +43,11 @@ export default function JoinHouseScreen() {
       } else if (result.success) {
         navigation.navigate('Home');
       } else {
-        setError(result.error ?? 'Erro ao entrar na toca.');
+        setError(result.error ?? t('join.error'));
       }
     } catch (e) {
       console.error('[JoinHouse]', (e as any)?.code ?? (e as any)?.message);
-      setError('Erro ao entrar na toca. Tente novamente.');
+      setError(t('join.error'));
     } finally {
       setLoading(false);
     }
@@ -56,13 +58,12 @@ export default function JoinHouseScreen() {
       <View style={styles.root}>
         <StatusBar style="light" />
         <View style={styles.container}>
-          <Text style={styles.title}>Solicitação enviada!</Text>
+          <Text style={styles.title}>{t('join.requestSent')}</Text>
           <Text style={styles.subtitle}>
-            Aguardando aprovação de um membro da toca {pendingHouseName}.
-            {'\n\n'}Você será notificado quando aceito.
+            {t('join.pendingSubtitle', { code: pendingHouseName })}
           </Text>
           <AnimatedButton
-            label="Voltar ao início"
+            label={t('join.backHome')}
             onPress={() => navigation.navigate('Home')}
             style={styles.button}
           />
@@ -79,17 +80,17 @@ export default function JoinHouseScreen() {
       <StatusBar style="light" />
       <View style={styles.container}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backBtnText}>← Voltar</Text>
+          <Text style={styles.backBtnText}>{t('common.back')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.title}>Entrar na Toca</Text>
-        <Text style={styles.subtitle}>Insira o código compartilhado pelo criador</Text>
+        <Text style={styles.title}>{t('join.title')}</Text>
+        <Text style={styles.subtitle}>{t('join.codeHint')}</Text>
 
         <View style={styles.group}>
-          <Text style={styles.label}>Código da toca</Text>
+          <Text style={styles.label}>{t('join.codeLabel')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Ex: AB12CD34"
+            placeholder={t('join.codePlaceholder')}
             placeholderTextColor={COLORS.textMuted}
             value={code}
             onChangeText={(v) => { setCode(v.toUpperCase()); setError(''); }}
@@ -102,7 +103,7 @@ export default function JoinHouseScreen() {
         {!!error && <Text style={styles.error}>{error}</Text>}
 
         <AnimatedButton
-          label="Entrar na Toca"
+          label={t('join.title')}
           onPress={handleJoin}
           disabled={!code.trim()}
           loading={loading}

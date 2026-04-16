@@ -1,10 +1,12 @@
 import { useEffect, useRef } from "react";
 import { Animated, Text, StyleSheet } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import { COLORS } from "../constants";
 
 export function OfflineBanner() {
+    const { t } = useTranslation();
     const { isOnline } = useNetworkStatus();
     const translateY = useRef(new Animated.Value(-60)).current;
     const insets = useSafeAreaInsets();
@@ -22,7 +24,7 @@ export function OfflineBanner() {
             style={[styles.banner, { transform: [{ translateY }] }]}
             pointerEvents="none"
         >
-            <Text style={styles.text}>Sem conexão com a internet</Text>
+            <Text style={styles.text}>{t('errors.offline')}</Text>
         </Animated.View>
     );
 }

@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Text, TouchableOpacity, ScrollView, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +15,7 @@ import { TaskForm, EditingTask } from '../components/tasks/TaskForm';
 import { showToast } from '../components/Toast';
 
 export default function TasksScreen() {
+  const { t } = useTranslation();
   const house = useHouseStore(selectActiveHouse);
   const { addTaskToHouse, removeTaskFromHouse, updateTaskInHouse, logs } = useHouseStore(
     useShallow((s) => ({
@@ -43,7 +45,7 @@ export default function TasksScreen() {
     setLoadingAdd(true);
     try {
       await addTaskToHouse(name, points);
-      showToast('Tarefa adicionada!', 'success');
+      showToast(t('tasks.taskAdded'), 'success');
       setShowAddForm(false);
     } finally {
       setLoadingAdd(false);
@@ -55,7 +57,7 @@ export default function TasksScreen() {
     setLoadingEdit(true);
     try {
       await updateTaskInHouse(editingTask.id, name, points);
-      showToast('Tarefa salva!', 'success');
+      showToast(t('tasks.taskSaved'), 'success');
       setEditingTask(null);
     } finally {
       setLoadingEdit(false);
@@ -65,19 +67,19 @@ export default function TasksScreen() {
   function handleDeletePress(task: Task) {
     const logCount = logs.filter((l) => l.taskId === task.id).length;
     const message = logCount > 0
-      ? `Deseja excluir "${task.name}"?\n\nIsso também removerá ${logCount} registro${logCount === 1 ? '' : 's'} dessa tarefa.`
-      : `Deseja excluir "${task.name}"?`;
+      ? `${t('tasks.confirmDelete')} "${task.name}"?\n\n${t('tasks.deleteWarning', { count: logCount })}`
+      : `${t('tasks.confirmDelete')} "${task.name}"?`;
     Alert.alert(
-      'Excluir tarefa',
+      t('tasks.confirmDelete'),
       message,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Excluir',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             await removeTaskFromHouse(task.id);
-            showToast('Tarefa excluída!', 'success');
+            showToast(t('tasks.taskDeleted'), 'success');
           },
         },
       ],
@@ -118,7 +120,7 @@ export default function TasksScreen() {
       <StatusBar style="light" />
 
       <ScreenHeader
-        title="Tarefas"
+        title={t('tasks.title')}
         right={
           <TouchableOpacity
             style={styles.addHeaderBtn}
@@ -142,7 +144,7 @@ export default function TasksScreen() {
         {tasks.map(renderTask)}
 
         {tasks.length === 0 && !showAddForm && (
-          <EmptyState icon="🧹" text="Nenhuma tarefa cadastrada." style={styles.emptyState} />
+          <EmptyState icon="🧹" text={t('tasks.noTasks')} style={styles.emptyState} />
         )}
       </ScrollView>
       </KeyboardAvoidingView>

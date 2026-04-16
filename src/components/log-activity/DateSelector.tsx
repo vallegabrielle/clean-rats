@@ -1,4 +1,6 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { COLORS } from '../../constants';
 
 type Props = {
@@ -7,7 +9,7 @@ type Props = {
   onChange: (date: Date) => void;
 };
 
-function formatLabel(date: Date): string {
+function formatLabel(date: Date, t: TFunction): string {
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
@@ -17,10 +19,13 @@ function formatLabel(date: Date): string {
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate();
 
-  if (isSameDay(date, today)) return 'Hoje';
-  if (isSameDay(date, yesterday)) return 'Ontem';
+  if (isSameDay(date, today)) return t('date.today');
+  if (isSameDay(date, yesterday)) return t('date.yesterday');
 
-  const weekdays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const weekdays = [
+    t('date.days.sun'), t('date.days.mon'), t('date.days.tue'),
+    t('date.days.wed'), t('date.days.thu'), t('date.days.fri'), t('date.days.sat'),
+  ];
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
   return `${weekdays[date.getDay()]}, ${day}/${month}`;
@@ -33,6 +38,7 @@ function startOfDay(date: Date): Date {
 }
 
 export function DateSelector({ date, minDate, onChange }: Props) {
+  const { t } = useTranslation();
   const todayStart = startOfDay(new Date());
   const minStart = startOfDay(minDate);
   const dateStart = startOfDay(date);
@@ -57,7 +63,7 @@ export function DateSelector({ date, minDate, onChange }: Props) {
         <Text style={styles.arrowText}>‹</Text>
       </TouchableOpacity>
 
-      <Text style={styles.label}>{formatLabel(date)}</Text>
+      <Text style={styles.label}>{formatLabel(date, t)}</Text>
 
       <TouchableOpacity
         onPress={() => shift(1)}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../constants';
 import { styles } from './styles';
 
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export function PrizeOption({ currentPrize, onUpdate }: Props) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,10 +37,10 @@ export function PrizeOption({ currentPrize, onUpdate }: Props) {
       <TouchableOpacity style={styles.option} onPress={open}>
         <Text style={styles.optionIcon}>🏆</Text>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.optionText, { flex: undefined }]}>Prêmio do desafio</Text>
+          <Text style={[styles.optionText, { flex: undefined }]}>{t('house.prize')}</Text>
           {currentPrize
             ? <Text style={styles.optionDetail} numberOfLines={1} ellipsizeMode="tail">{currentPrize}</Text>
-            : <Text style={styles.prizeHint}>Toque para definir o prêmio do vencedor</Text>
+            : <Text style={styles.prizeHint}>{t('house.prizeHint')}</Text>
           }
         </View>
       </TouchableOpacity>
@@ -54,7 +56,7 @@ export function PrizeOption({ currentPrize, onUpdate }: Props) {
         maxLength={MAX_PRIZE}
         autoFocus
         placeholderTextColor={COLORS.textMuted}
-        placeholder="Ex: Pizza para todos!"
+        placeholder={t('house.prizePlaceholderSettings')}
       />
       <View style={styles.formActions}>
         <TouchableOpacity
@@ -64,11 +66,11 @@ export function PrizeOption({ currentPrize, onUpdate }: Props) {
         >
           {loading
             ? <ActivityIndicator color="#fff" size="small" />
-            : <Text style={styles.confirmBtnText}>Salvar</Text>
+            : <Text style={styles.confirmBtnText}>{t('common.save')}</Text>
           }
         </TouchableOpacity>
         <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditing(false)} disabled={loading}>
-          <Text style={styles.cancelBtnText}>Cancelar</Text>
+          <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
         </TouchableOpacity>
       </View>
     </View>

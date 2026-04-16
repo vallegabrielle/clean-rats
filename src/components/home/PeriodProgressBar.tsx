@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../constants';
 import { House, Period } from '../../types';
 
@@ -18,13 +19,9 @@ function getPeriodEnd(period: Period, periodStart: Date): Date {
   return d;
 }
 
-const PERIOD_LABEL: Record<Period, string> = {
-  weekly: 'Semanal',
-  biweekly: 'Quinzenal',
-  monthly: 'Mensal',
-};
-
 export function PeriodProgressBar({ house }: { house: House }) {
+  const { t } = useTranslation();
+
   if (!house.periodStart) return null;
   const now = new Date();
   const start = new Date(house.periodStart);
@@ -34,18 +31,18 @@ export function PeriodProgressBar({ house }: { house: House }) {
   const progress = Math.min(1, Math.max(0, elapsed / total));
   const msLeft = end.getTime() - now.getTime();
   const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
-  const remaining = daysLeft <= 0 ? 'Encerra hoje' : daysLeft === 1 ? '1 dia restante' : `${daysLeft} dias restantes`;
+  const remaining = daysLeft <= 0 ? t('period.endsToday') : t('period.daysLeft', { count: daysLeft });
 
   return (
     <View style={styles.periodContainer}>
       <View style={styles.periodHeader}>
-        <Text style={styles.periodLabel}>Período {PERIOD_LABEL[house.period]}</Text>
+        <Text style={styles.periodLabel}>{t('period.current') + ' '}{t(`period.${house.period}`)}</Text>
         <Text style={styles.periodRemaining}>{remaining}</Text>
       </View>
       <View
         style={styles.periodTrack}
         accessibilityRole="progressbar"
-        accessibilityLabel={`Progresso do período: ${Math.round(progress * 100)}%`}
+        accessibilityLabel={t('period.progressA11y', { percent: Math.round(progress * 100) })}
         accessibilityValue={{ min: 0, max: 100, now: Math.round(progress * 100) }}
       >
         <View style={[styles.periodFill, { width: `${Math.round(progress * 100)}%` }]} />

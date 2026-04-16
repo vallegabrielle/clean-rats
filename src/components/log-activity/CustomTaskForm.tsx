@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { COLORS, MAX_TASK_POINTS } from '../../constants';
 import { styles } from './styles';
 
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export function CustomTaskForm({ loading, onSubmit, onCancel }: Props) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [points, setPoints] = useState('');
 
@@ -25,7 +27,7 @@ export function CustomTaskForm({ loading, onSubmit, onCancel }: Props) {
     <View style={styles.customForm}>
       <TextInput
         style={styles.input}
-        placeholder="Nome da tarefa"
+        placeholder={t('logActivity.customName')}
         placeholderTextColor={COLORS.textMuted}
         value={name}
         onChangeText={setName}
@@ -34,7 +36,7 @@ export function CustomTaskForm({ loading, onSubmit, onCancel }: Props) {
       />
       <TextInput
         style={styles.input}
-        placeholder="Pontos"
+        placeholder={t('logActivity.customPoints')}
         placeholderTextColor={COLORS.textMuted}
         value={points}
         onChangeText={setPoints}
@@ -44,7 +46,7 @@ export function CustomTaskForm({ loading, onSubmit, onCancel }: Props) {
       />
       <View style={styles.customActions}>
         <TouchableOpacity style={styles.cancelBtn} onPress={onCancel} disabled={loading}>
-          <Text style={styles.cancelBtnText}>Cancelar</Text>
+          <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.confirmBtn, !canSubmit && styles.confirmBtnDisabled]}
@@ -53,7 +55,7 @@ export function CustomTaskForm({ loading, onSubmit, onCancel }: Props) {
         >
           {loading
             ? <ActivityIndicator color="#fff" size="small" />
-            : <Text style={styles.confirmBtnText}>Registrar</Text>
+            : <Text style={styles.confirmBtnText}>{t('logActivity.register')}</Text>
           }
         </TouchableOpacity>
       </View>

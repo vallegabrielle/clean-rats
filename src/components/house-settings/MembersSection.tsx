@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
+import { useTranslation } from "react-i18next";
 import { JoinRequest } from "../../types";
 import { COLORS } from "../../constants";
 import { styles } from "./styles";
@@ -25,6 +26,7 @@ export function MembersSection({
     onReject,
     onRemove,
 }: Props) {
+    const { t } = useTranslation();
     const [showMembers, setShowMembers] = useState(defaultExpanded);
     const [loadingId, setLoadingId] = useState<string | null>(null);
 
@@ -53,7 +55,7 @@ export function MembersSection({
                 onPress={() => setShowMembers((v) => !v)}
             >
                 <Text style={styles.optionIcon}>👥</Text>
-                <Text style={styles.optionText}>Ver membros</Text>
+                <Text style={styles.optionText}>{t('members.viewAll')}</Text>
                 <View style={styles.optionBadges}>
                     {pendingRequests.length > 0 && (
                         <View style={styles.pendingBadge}>
@@ -89,12 +91,12 @@ export function MembersSection({
                                             <TouchableOpacity
                                                 onPress={() => {
                                                     Alert.alert(
-                                                        'Remover membro',
-                                                        `Deseja remover "${m.name}" da toca?`,
+                                                        t('members.removeTitle'),
+                                                        t('members.removeConfirm', { name: m.name }),
                                                         [
-                                                            { text: 'Cancelar', style: 'cancel' },
+                                                            { text: t('common.cancel'), style: 'cancel' },
                                                             {
-                                                                text: 'Remover',
+                                                                text: t('common.remove'),
                                                                 style: 'destructive',
                                                                 onPress: () => {
                                                                     setLoadingId(m.id);
@@ -119,7 +121,7 @@ export function MembersSection({
                     {pendingRequests.length > 0 && (
                         <View style={styles.pendingSection}>
                             <Text style={styles.pendingSectionLabel}>
-                                Aguardando aprovação
+                                {t('members.pendingApproval')}
                             </Text>
                             {pendingRequests.map((r) => {
                                 const isLoading = loadingId === r.userId;

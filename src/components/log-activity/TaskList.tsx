@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../constants';
 import { styles } from './styles';
 
@@ -12,8 +13,10 @@ type Props = {
 };
 
 export function TaskList({ tasks, currentTaskId, loadingId, onSelect }: Props) {
+  const { t } = useTranslation();
+
   if (!tasks.length) {
-    return <Text style={styles.emptyText}>Nenhuma tarefa cadastrada.</Text>;
+    return <Text style={styles.emptyText}>{t('tasks.noTasks')}</Text>;
   }
 
   return (
@@ -30,7 +33,7 @@ export function TaskList({ tasks, currentTaskId, loadingId, onSelect }: Props) {
           >
             <View style={styles.taskInfo}>
               <Text style={styles.taskName}>{task.name}</Text>
-              {isCurrent && <Text style={styles.currentLabel}>selecionada</Text>}
+              {isCurrent && <Text style={styles.currentLabel}>{t('tasks.selected', { count: 1 })}</Text>}
             </View>
             <View style={styles.pointsBadge}>
               {loading ? (
