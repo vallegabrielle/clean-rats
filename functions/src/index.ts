@@ -394,7 +394,7 @@ const STALE_THRESHOLDS: Record<string, number> = {
 };
 
 export const notifyStaleMembers = onSchedule({
-    schedule: "0 22 * * *",  // diariamente, 19h BRT (UTC-3)
+    schedule: "0 14 * * *",  // diariamente, 11h BRT (UTC-3)
     timeoutSeconds: 120,
     memory: "256MiB",
 }, async () => {
