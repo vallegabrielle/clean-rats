@@ -12,6 +12,7 @@ import {
     query,
     where,
     arrayUnion,
+    arrayRemove,
     getDoc,
     getDocs,
     limit,
@@ -457,12 +458,8 @@ export const useHouseStore = create<HouseState>()((set, get) => {
             await updateDoc(houseRef, {
                 members: arrayUnion(newMember),
                 memberIds: arrayUnion(requestUserId),
-                pendingRequests: (house.pendingRequests ?? []).filter(
-                    (r) => r.userId !== requestUserId,
-                ),
-                pendingMemberIds: (house.pendingMemberIds ?? []).filter(
-                    (id) => id !== requestUserId,
-                ),
+                pendingRequests: arrayRemove(request),
+                pendingMemberIds: arrayRemove(requestUserId),
             });
         },
 
@@ -477,13 +474,14 @@ export const useHouseStore = create<HouseState>()((set, get) => {
                 throw new Error("Não autorizado.");
             }
 
+            const request = (house.pendingRequests ?? []).find(
+                (r) => r.userId === requestUserId,
+            );
+            if (!request) return;
+
             await updateDoc(houseRef, {
-                pendingRequests: (house.pendingRequests ?? []).filter(
-                    (r) => r.userId !== requestUserId,
-                ),
-                pendingMemberIds: (house.pendingMemberIds ?? []).filter(
-                    (id) => id !== requestUserId,
-                ),
+                pendingRequests: arrayRemove(request),
+                pendingMemberIds: arrayRemove(requestUserId),
             });
         },
 

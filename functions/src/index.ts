@@ -261,14 +261,18 @@ export const onHouseUpdated = onDocumentUpdated({
         const tokens = await getTokensForUsers([userId]);
         if (tokens.length === 0) continue;
 
-        await sendExpoPush([{
-            to: tokens[0],
-            title: wasApproved ? "Solicitação aceita ✅" : "Solicitação recusada",
-            body: wasApproved
-                ? `Você entrou em "${houseName}"! 🐀`
-                : `Sua solicitação para "${houseName}" foi recusada.`,
-            sound: "default",
-        }]);
+        try {
+            await sendExpoPush([{
+                to: tokens[0],
+                title: wasApproved ? "Solicitação aceita ✅" : "Solicitação recusada",
+                body: wasApproved
+                    ? `Você entrou em "${houseName}"! 🐀`
+                    : `Sua solicitação para "${houseName}" foi recusada.`,
+                sound: "default",
+            }]);
+        } catch (e) {
+            console.error("[onHouseUpdated] sendExpoPush failed for userId", userId, e);
+        }
     }
 
     // ── 3. Fim de período ────────────────────────────────────────────────────
