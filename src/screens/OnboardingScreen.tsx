@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, type ReactElement } from "react";
+import { useRef, useState, useCallback, useEffect, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -14,14 +14,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../constants";
 import {
-    TopBarMock,
     InviteMock,
     RegisterMock,
     PeriodMock,
-    RankingMock,
 } from "../components/onboarding/OnboardingMocks";
 
 export const ONBOARDING_KEY = "@cleanrats:onboarding_done";
@@ -87,20 +86,6 @@ function getSlides(t: TFunction): Slide[] {
             title: t("onboarding.slide4Title"),
             subtitle: t("onboarding.slide4Subtitle"),
         },
-        {
-            key: "navegacao",
-            kind: "custom",
-            visual: TopBarMock,
-            title: t("onboarding.slide5Title"),
-            subtitle: t("onboarding.slide5Subtitle"),
-        },
-        {
-            key: "ranking",
-            kind: "custom",
-            visual: RankingMock,
-            title: t("onboarding.slide6Title"),
-            subtitle: t("onboarding.slide6Subtitle"),
-        },
     ];
 }
 
@@ -117,14 +102,37 @@ export default function OnboardingScreen({ onDone }: Props) {
     const listRef = useRef<FlatList<Slide>>(null);
     const scrollX = useRef(new Animated.Value(0)).current;
 
+    // Content entrance animation — fires when active slide changes
+    const fadeAnim = useRef(new Animated.Value(1)).current;
+    const translateAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        fadeAnim.setValue(0);
+        translateAnim.setValue(16);
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 280,
+                useNativeDriver: true,
+            }),
+            Animated.timing(translateAnim, {
+                toValue: 0,
+                duration: 280,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    }, [currentIndex]);
+
     const isLast = currentIndex === SLIDES.length - 1;
 
     async function finish() {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         await AsyncStorage.setItem(ONBOARDING_KEY, "true");
         onDone();
     }
 
-    function goNext() {
+    async function goNext() {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         if (isLast) {
             finish();
             return;
@@ -136,8 +144,16 @@ export default function OnboardingScreen({ onDone }: Props) {
 
     const onMomentumScrollEnd = useCallback((e: any) => {
         const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-        setCurrentIndex(index);
+        setCurrentIndex((prev) => (prev !== index ? index : prev));
+        Haptics.selectionAsync();
     }, []);
+
+    // Progress bar: interpolates from 1/n at slide 0 to 1 at slide n-1
+    const progressWidth = scrollX.interpolate({
+        inputRange: [0, SCREEN_WIDTH * (SLIDES.length - 1)],
+        outputRange: ["20%", "100%"],
+        extrapolate: "clamp",
+    });
 
     function renderSlide({ item }: ListRenderItemInfo<Slide>) {
         return (
@@ -147,8 +163,16 @@ export default function OnboardingScreen({ onDone }: Props) {
                 ) : (
                     <item.visual />
                 )}
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.subtitle}>{item.subtitle}</Text>
+                <Animated.View
+                    style={{
+                        opacity: fadeAnim,
+                        transform: [{ translateY: translateAnim }],
+                        alignItems: "center",
+                    }}
+                >
+                    <Text style={styles.title}>{item.title}</Text>
+                    <Text style={styles.subtitle}>{item.subtitle}</Text>
+                </Animated.View>
             </View>
         );
     }
@@ -193,40 +217,17 @@ export default function OnboardingScreen({ onDone }: Props) {
 
             {/* Footer */}
             <View style={styles.footer}>
-                <View style={styles.dots}>
-                    {SLIDES.map((s, i) => {
-                        const width = scrollX.interpolate({
-                            inputRange: [
-                                (i - 1) * SCREEN_WIDTH,
-                                i * SCREEN_WIDTH,
-                                (i + 1) * SCREEN_WIDTH,
-                            ],
-                            outputRange: [8, 24, 8],
-                            extrapolate: "clamp",
-                        });
-                        const backgroundColor = scrollX.interpolate({
-                            inputRange: [
-                                (i - 1) * SCREEN_WIDTH,
-                                i * SCREEN_WIDTH,
-                                (i + 1) * SCREEN_WIDTH,
-                            ],
-                            outputRange: [
-                                COLORS.border,
-                                COLORS.red,
-                                COLORS.border,
-                            ],
-                            extrapolate: "clamp",
-                        });
-                        return (
-                            <Animated.View
-                                key={s.key}
-                                style={[styles.dot, { width, backgroundColor }]}
-                            />
-                        );
-                    })}
+                {/* Progress bar */}
+                <View style={styles.progressTrack}>
+                    <Animated.View
+                        style={[styles.progressFill, { width: progressWidth }]}
+                    />
                 </View>
 
-                <TouchableOpacity style={styles.btn} onPress={goNext}>
+                <TouchableOpacity
+                    style={[styles.btn, isLast && styles.btnFinal]}
+                    onPress={goNext}
+                >
                     <Text style={styles.btnText}>
                         {isLast ? t("common.start") : t("common.next")}
                     </Text>
@@ -292,19 +293,17 @@ const styles = StyleSheet.create({
         gap: 24,
         alignItems: "center",
     },
-    dots: {
-        flexDirection: "row",
-        gap: 8,
-    },
-    dot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
+    progressTrack: {
+        width: "100%",
+        height: 4,
+        borderRadius: 2,
         backgroundColor: COLORS.border,
+        overflow: "hidden",
     },
-    dotActive: {
+    progressFill: {
+        height: 4,
+        borderRadius: 2,
         backgroundColor: COLORS.red,
-        width: 24,
     },
     btn: {
         width: "100%",
@@ -312,6 +311,10 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         padding: 18,
         alignItems: "center",
+    },
+    btnFinal: {
+        borderWidth: 1.5,
+        borderColor: "rgba(255,255,255,0.25)",
     },
     btnText: {
         fontFamily: "Bungee_400Regular",
