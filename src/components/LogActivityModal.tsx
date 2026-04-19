@@ -2,7 +2,7 @@ import { Modal, View, Text, TouchableOpacity, ScrollView, KeyboardAvoidingView, 
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useSheetDismiss } from '../hooks/useSheetDismiss';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHouseStore, selectActiveHouse } from '../contexts/HouseContext';
 import { useShallow } from 'zustand/react/shallow';
@@ -40,6 +40,17 @@ export function LogActivityModal({
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const { translateY, panHandlers } = useSheetDismiss(handleClose);
+
+  // onDismiss is iOS-only — use a visible transition effect for cross-platform support.
+  // 350ms matches the default animationType="slide" duration.
+  const prevVisibleRef = useRef(visible);
+  useEffect(() => {
+    if (prevVisibleRef.current && !visible) {
+      const timer = setTimeout(handleDismissed, 350);
+      return () => clearTimeout(timer);
+    }
+    prevVisibleRef.current = visible;
+  }, [visible]);
 
   const currentTaskId = editingLogId
     ? logs.find((l) => l.id === editingLogId)?.taskId
@@ -95,7 +106,7 @@ export function LogActivityModal({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose} onDismiss={handleDismissed}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={handleClose} />
 
       <KeyboardAvoidingView
