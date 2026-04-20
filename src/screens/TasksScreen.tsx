@@ -13,6 +13,9 @@ import { Task } from '../types';
 import { TaskCard } from '../components/tasks/TaskCard';
 import { TaskForm, EditingTask } from '../components/tasks/TaskForm';
 import { showToast } from '../components/Toast';
+import { maybeShowInterstitial } from '../utils/adManager';
+
+let sessionTaskAddCount = 0;
 
 export default function TasksScreen() {
   const { t } = useTranslation();
@@ -45,8 +48,12 @@ export default function TasksScreen() {
     setLoadingAdd(true);
     try {
       await addTaskToHouse(name, points);
+      sessionTaskAddCount += 1;
       showToast(t('tasks.taskAdded'), 'success');
       setShowAddForm(false);
+      if (sessionTaskAddCount % 3 === 0) {
+        setTimeout(() => { try { maybeShowInterstitial(); } catch { /* silent */ } }, 350);
+      }
     } finally {
       setLoadingAdd(false);
     }

@@ -62,9 +62,6 @@ export function LogActivityModal({
     onClose();
   }
 
-  // Called by Modal's onDismiss — fires after the slide animation completes.
-  // Safer than setTimeout: guaranteed the UIViewController is gone before
-  // presenting the interstitial on top.
   function handleDismissed() {
     if (sessionLogCount === 0 || sessionLogCount % 3 !== 0) return;
     try { maybeShowInterstitial(); } catch { /* silent */ }
