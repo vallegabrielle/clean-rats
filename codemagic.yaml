@@ -25,6 +25,7 @@ workflows:
         script: |
           echo $GOOGLE_SERVICE_INFO_PLIST_BASE64 | base64 --decode \
             > $CM_BUILD_DIR/GoogleService-Info.plist
+          plutil -convert xml1 $CM_BUILD_DIR/GoogleService-Info.plist
 
       - name: Expo prebuild (development)
         script: npx expo prebuild --clean --platform ios --no-install
@@ -99,6 +100,7 @@ workflows:
         script: |
           echo $GOOGLE_SERVICE_INFO_PLIST_BASE64 | base64 --decode \
             > $CM_BUILD_DIR/GoogleService-Info.plist
+          plutil -convert xml1 $CM_BUILD_DIR/GoogleService-Info.plist
 
       - name: Expo prebuild
         script: npx expo prebuild --clean --platform ios --no-install
@@ -174,6 +176,7 @@ workflows:
         script: |
           echo $GOOGLE_SERVICE_INFO_PLIST_BASE64 | base64 --decode \
             > $CM_BUILD_DIR/GoogleService-Info.plist
+          plutil -convert xml1 $CM_BUILD_DIR/GoogleService-Info.plist
 
       - name: Expo prebuild
         script: npx expo prebuild --clean --platform ios --no-install
