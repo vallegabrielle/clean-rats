@@ -17,6 +17,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS } from '../constants';
 import { useHouseStore } from '../contexts/HouseContext';
 import { RootStackParamList } from '../../App';
+import { trackJoinHouse } from '../utils/analytics';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'JoinHouse'>;
 type RouteType = RouteProp<RootStackParamList, 'JoinHouse'>;
@@ -39,8 +40,10 @@ export default function JoinHouseScreen() {
     try {
       const result = await joinHouseByCode(code.trim());
       if (result.pending) {
+        trackJoinHouse();
         setPendingHouseName(code.toUpperCase().trim());
       } else if (result.success) {
+        trackJoinHouse();
         navigation.navigate('Home');
       } else {
         setError(result.error ?? t('join.error'));

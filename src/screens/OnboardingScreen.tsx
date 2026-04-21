@@ -17,6 +17,7 @@ import { StatusBar } from "expo-status-bar";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../constants";
+import { trackCompleteOnboarding } from "../utils/analytics";
 import {
     InviteMock,
     RegisterMock,
@@ -127,6 +128,7 @@ export default function OnboardingScreen({ onDone }: Props) {
 
     async function finish() {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        trackCompleteOnboarding();
         await AsyncStorage.setItem(ONBOARDING_KEY, "true");
         onDone();
     }

@@ -23,6 +23,7 @@ import { useHouseStore, MAX_HOUSES } from '../contexts/HouseContext';
 import { useShallow } from 'zustand/react/shallow';
 import { useAuth } from '../contexts/AuthContext';
 import { RootStackParamList } from '../../App';
+import { trackCreateHouse } from '../utils/analytics';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'CreateHouse'>;
 
@@ -106,6 +107,7 @@ export default function CreateHouseScreen() {
         prize: prize.trim() || undefined,
       };
       await addHouseToList(house);
+      trackCreateHouse();
       navigation.navigate('Home');
     } catch (e) {
       setError(t('house.createError'));

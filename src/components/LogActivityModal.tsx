@@ -12,6 +12,7 @@ import { TaskList } from './log-activity/TaskList';
 import { CustomTaskForm } from './log-activity/CustomTaskForm';
 import { DateSelector } from './log-activity/DateSelector';
 import { maybeShowInterstitial } from '../utils/adManager';
+import { trackLogActivity } from '../utils/analytics';
 
 // Persists across modal opens within a session. Resets on cold start (intentional).
 let sessionLogCount = 0;
@@ -78,8 +79,9 @@ export function LogActivityModal({
       } else {
         await logTaskInHouse(taskId, selectedDate.toISOString());
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        // Increment only after a successful write.
         sessionLogCount += 1;
+        const task = house?.tasks.find((t) => t.id === taskId);
+        if (task) trackLogActivity(task.name, task.points);
         showToast(t('logActivity.registered'), 'success');
         handleClose();
       }
@@ -93,8 +95,8 @@ export function LogActivityModal({
     try {
       await addTaskAndLogInHouse(name, points, selectedDate.toISOString());
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // Increment only after a successful write.
       sessionLogCount += 1;
+      trackLogActivity(name, points);
       showToast(t('logActivity.taskCreated'), 'success');
       handleClose();
     } finally {

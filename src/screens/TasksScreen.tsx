@@ -14,6 +14,7 @@ import { TaskCard } from '../components/tasks/TaskCard';
 import { TaskForm, EditingTask } from '../components/tasks/TaskForm';
 import { showToast } from '../components/Toast';
 import { maybeShowInterstitial } from '../utils/adManager';
+import { trackCreateTask } from '../utils/analytics';
 
 let sessionTaskAddCount = 0;
 
@@ -49,6 +50,7 @@ export default function TasksScreen() {
     try {
       await addTaskToHouse(name, points);
       sessionTaskAddCount += 1;
+      trackCreateTask(name, points);
       showToast(t('tasks.taskAdded'), 'success');
       setShowAddForm(false);
       if (sessionTaskAddCount % 3 === 0) {

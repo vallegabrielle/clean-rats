@@ -15,6 +15,7 @@ module.exports = {
     ios: {
         supportsTablet: true,
         bundleIdentifier: 'com.gdvll.cleanrats',
+        googleServicesFile: process.env.GOOGLE_SERVICES_INFO_PLIST ?? './GoogleService-Info.plist',
         infoPlist: {
             ITSAppUsesNonExemptEncryption: false,
             NSUserTrackingUsageDescription:
@@ -36,6 +37,7 @@ module.exports = {
         favicon: './assets/cleaner_rat_red_bg.png',
     },
     plugins: [
+        '@react-native-firebase/app',
         'expo-font',
         'expo-web-browser',
         'expo-apple-authentication',

@@ -6,7 +6,8 @@ import { NotoSansMono_400Regular } from '@expo-google-fonts/noto-sans-mono';
 import { Platform, View, ActivityIndicator } from 'react-native';
 import MobileAds from 'react-native-google-mobile-ads';
 import { initInterstitialAd } from './src/utils/adManager';
-import { NavigationContainer } from '@react-navigation/native';
+import { trackScreen } from './src/utils/analytics';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -91,6 +92,7 @@ function AppNavigator({ onboardingDone, onOnboardingDone }: AppNavigatorProps) {
 
 function AppContent() {
   const { loading: authLoading, isAuthenticated, user } = useAuth();
+  const navigationRef = useNavigationContainerRef();
   const [fontsLoaded] = useFonts({
     Bungee_400Regular,
     NotoSansMono_400Regular,
@@ -136,7 +138,14 @@ function AppContent() {
 
   return (
     <OnboardingContext.Provider value={{ resetOnboarding }}>
-      <NavigationContainer linking={linking}>
+      <NavigationContainer
+          ref={navigationRef}
+          linking={linking}
+          onStateChange={() => {
+            const route = navigationRef.getCurrentRoute();
+            if (route?.name) trackScreen(route.name);
+          }}
+        >
         <AppNavigator
           onboardingDone={onboardingDone}
           onOnboardingDone={() => setOnboardingDone(true)}
