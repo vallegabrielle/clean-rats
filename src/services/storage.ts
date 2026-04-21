@@ -33,13 +33,11 @@ export async function loadHouses(): Promise<House[]> {
     if (!data) return [];
     const parsed: unknown = JSON.parse(data);
     if (!Array.isArray(parsed)) {
-      console.warn('[storage] loadHouses: invalid schema, clearing.');
       await AsyncStorage.removeItem(HOUSES_KEY);
       return [];
     }
     const valid = parsed.filter(isValidHouse);
     if (valid.length !== parsed.length) {
-      console.warn('[storage] loadHouses: some entries were invalid and removed.');
       await AsyncStorage.setItem(HOUSES_KEY, JSON.stringify(valid));
     }
     return valid;

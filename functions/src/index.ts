@@ -88,7 +88,6 @@ async function sendExpoPush(messages: PushMessage[]): Promise<void> {
                 let body = "";
                 res.on("data", (chunk: string) => { body += chunk; });
                 res.on("end", async () => {
-                    console.log("[sendExpoPush] HTTP status:", res.statusCode, "body:", body);
                     try {
                         const result = JSON.parse(body) as {
                             data: Array<{ status: string; details?: { error?: string } }>;
@@ -100,7 +99,6 @@ async function sendExpoPush(messages: PushMessage[]): Promise<void> {
                             })
                             .map((m) => m.to);
                         if (staleTokens.length > 0) {
-                            console.log("[sendExpoPush] Removing stale tokens:", staleTokens);
                             const usersSnap = await db
                                 .collection("users")
                                 .where("pushToken", "in", staleTokens.slice(0, 10))
@@ -401,10 +399,8 @@ export const notifyStaleMembers = onSchedule({
     timeoutSeconds: 120,
     memory: "256MiB",
 }, async () => {
-    console.log("[notifyStaleMembers] Starting run at", new Date().toISOString());
     const now = Date.now();
     const housesSnap = await db.collection("houses").get();
-    console.log("[notifyStaleMembers] Houses found:", housesSnap.size);
 
     for (const houseDoc of housesSnap.docs) {
         const house = houseDoc.data() as {
@@ -445,14 +441,11 @@ export const notifyStaleMembers = onSchedule({
             return now - last > thresholdMs;
         });
 
-        console.log(`[notifyStaleMembers] House ${houseDoc.id} ("${house.name}"): staleIds=${JSON.stringify(staleIds)}`);
-
         if (staleIds.length === 0) continue;
 
         const messages: PushMessage[] = [];
         for (const memberId of staleIds) {
             const memberTokens = await getTokensForUsers([memberId]);
-            console.log(`[notifyStaleMembers] Member ${memberId}: tokens=${JSON.stringify(memberTokens)}`);
             for (const token of memberTokens) {
                 messages.push({
                     to: token,
@@ -463,9 +456,6 @@ export const notifyStaleMembers = onSchedule({
             }
         }
 
-        console.log(`[notifyStaleMembers] Sending ${messages.length} push(es) for house ${houseDoc.id}`);
         await sendExpoPush(messages);
     }
-
-    console.log("[notifyStaleMembers] Done");
 });

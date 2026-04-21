@@ -32,22 +32,18 @@ export async function registerForPushNotifications(userId: string): Promise<void
   }
 
   if (finalStatus !== 'granted') {
-    console.warn('[notifications] Permission not granted:', finalStatus);
     return;
   }
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId;
   if (!projectId) {
-    console.warn('[notifications] No projectId in Constants.expoConfig');
     return;
   }
 
   const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-  console.log('[notifications] Push token:', token);
 
   await setDoc(doc(db, 'users', userId), {
     pushToken: token,
     updatedAt: new Date().toISOString(),
   }, { merge: true });
-  console.log('[notifications] Token saved for user:', userId);
 }
