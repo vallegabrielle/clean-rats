@@ -4,7 +4,7 @@
 
 let lastAdShownAt = 0;
 
-const MIN_INTERVAL_MS = 5 * 60 * 1000;
+const MIN_INTERVAL_MS = 30 * 1000;
 
 export function canShowAd(): boolean {
   if (lastAdShownAt > 0 && Date.now() - lastAdShownAt < MIN_INTERVAL_MS) return false;

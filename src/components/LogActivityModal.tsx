@@ -40,7 +40,7 @@ export function LogActivityModal({
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const { translateY, panHandlers } = useSheetDismiss(handleClose);
+  useSheetDismiss(handleClose);
 
   const currentTaskId = editingLogId
     ? logs.find((l) => l.id === editingLogId)?.taskId
@@ -54,7 +54,7 @@ export function LogActivityModal({
 
   function scheduleAdIfDue() {
     if (sessionLogCount % 3 === 0) {
-      setTimeout(() => { try { maybeShowInterstitial(); } catch { /* silent */ } }, 500);
+      setTimeout(() => { try { maybeShowInterstitial(); } catch { /* silent */ } }, 700);
     }
   }
 
