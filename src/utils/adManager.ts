@@ -12,6 +12,22 @@ const adUnitId = __DEV__
 let ad: InterstitialAd | null = null;
 let adLoaded = false;
 let initialized = false;
+let showPendingUntil = 0;
+
+const PENDING_SHOW_TTL_MS = 10_000;
+const ERROR_RETRY_DELAY_MS = 30_000;
+
+function tryShowPending() {
+  if (showPendingUntil === 0 || Date.now() > showPendingUntil) return;
+  if (!canShowAd() || !adLoaded || !ad) return;
+  try {
+    ad.show();
+    recordAdShown();
+    showPendingUntil = 0;
+  } catch {
+    showPendingUntil = 0;
+  }
+}
 
 function createAndLoad() {
   if (!adUnitId) return;
@@ -21,9 +37,16 @@ function createAndLoad() {
   ad = InterstitialAd.createForAdRequest(adUnitId);
   adLoaded = false;
 
-  ad.addAdEventListener(AdEventType.LOADED, () => { adLoaded = true; });
+  ad.addAdEventListener(AdEventType.LOADED, () => {
+    adLoaded = true;
+    tryShowPending();
+  });
   ad.addAdEventListener(AdEventType.CLOSED, () => { adLoaded = false; createAndLoad(); });
-  ad.addAdEventListener(AdEventType.ERROR, () => { adLoaded = false; });
+  ad.addAdEventListener(AdEventType.ERROR, () => {
+    adLoaded = false;
+    showPendingUntil = 0;
+    setTimeout(createAndLoad, ERROR_RETRY_DELAY_MS);
+  });
 
   ad.load();
 }
@@ -35,12 +58,16 @@ export function initInterstitialAd() {
 }
 
 export function maybeShowInterstitial(): boolean {
-  if (!canShowAd() || !adLoaded || !ad) return false;
-  try {
-    ad.show();
-    recordAdShown();
-    return true;
-  } catch {
-    return false;
+  if (!canShowAd()) return false;
+  if (adLoaded && ad) {
+    try {
+      ad.show();
+      recordAdShown();
+      return true;
+    } catch {
+      return false;
+    }
   }
+  showPendingUntil = Date.now() + PENDING_SHOW_TTL_MS;
+  return false;
 }

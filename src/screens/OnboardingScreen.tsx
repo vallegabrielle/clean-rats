@@ -150,12 +150,6 @@ export default function OnboardingScreen({ onDone }: Props) {
         Haptics.selectionAsync();
     }, []);
 
-    // Progress bar: interpolates from 1/n at slide 0 to 1 at slide n-1
-    const progressWidth = scrollX.interpolate({
-        inputRange: [0, SCREEN_WIDTH * (SLIDES.length - 1)],
-        outputRange: ["20%", "100%"],
-        extrapolate: "clamp",
-    });
 
     function renderSlide({ item }: ListRenderItemInfo<Slide>) {
         return (
@@ -219,11 +213,34 @@ export default function OnboardingScreen({ onDone }: Props) {
 
             {/* Footer */}
             <View style={styles.footer}>
-                {/* Progress bar */}
-                <View style={styles.progressTrack}>
-                    <Animated.View
-                        style={[styles.progressFill, { width: progressWidth }]}
-                    />
+                {/* Dots */}
+                <View style={styles.dots}>
+                    {SLIDES.map((_, i) => {
+                        const opacity = scrollX.interpolate({
+                            inputRange: [
+                                (i - 1) * SCREEN_WIDTH,
+                                i * SCREEN_WIDTH,
+                                (i + 1) * SCREEN_WIDTH,
+                            ],
+                            outputRange: [0.3, 1, 0.3],
+                            extrapolate: "clamp",
+                        });
+                        const scale = scrollX.interpolate({
+                            inputRange: [
+                                (i - 1) * SCREEN_WIDTH,
+                                i * SCREEN_WIDTH,
+                                (i + 1) * SCREEN_WIDTH,
+                            ],
+                            outputRange: [0.8, 1.2, 0.8],
+                            extrapolate: "clamp",
+                        });
+                        return (
+                            <Animated.View
+                                key={i}
+                                style={[styles.dot, { opacity, transform: [{ scale }] }]}
+                            />
+                        );
+                    })}
                 </View>
 
                 <TouchableOpacity
@@ -295,16 +312,16 @@ const styles = StyleSheet.create({
         gap: 24,
         alignItems: "center",
     },
-    progressTrack: {
-        width: "100%",
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: COLORS.border,
-        overflow: "hidden",
+    dots: {
+        flexDirection: "row",
+        gap: 8,
+        alignItems: "center",
+        justifyContent: "center",
     },
-    progressFill: {
-        height: 4,
-        borderRadius: 2,
+    dot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
         backgroundColor: COLORS.red,
     },
     btn: {
