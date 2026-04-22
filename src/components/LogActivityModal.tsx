@@ -70,7 +70,6 @@ export function LogActivityModal({
   // iOS: onDismiss fires after the modal VC is fully removed from the iOS
   // presentation hierarchy — the only safe moment to present an interstitial.
   function handleModalDismiss() {
-    showToast(`onDismiss: pending=${pendingAd.current}`, 'success');
     if (pendingAd.current) {
       pendingAd.current = false;
       showInterstitial();
@@ -78,9 +77,7 @@ export function LogActivityModal({
   }
 
   function scheduleAdIfDue() {
-    const due = sessionLogCount % 3 === 0;
-    showToast(`log #${sessionLogCount} due=${due}`, 'success');
-    if (due) {
+    if (sessionLogCount % 3 === 0) {
       pendingAd.current = true;
     }
   }
