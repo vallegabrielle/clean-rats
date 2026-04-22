@@ -1,13 +1,8 @@
 import { InterstitialAd, AdEventType, TestIds } from 'react-native-google-mobile-ads';
-import { Platform } from 'react-native';
 import { showToast } from '../components/Toast';
 
-const adUnitId = __DEV__
-  ? TestIds.INTERSTITIAL
-  : Platform.select({
-      ios: 'ca-app-pub-8864558033968402/8291195810',
-      android: process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ANDROID_ID ?? '',
-    }) ?? '';
+// TEMP: usando TestIds para validar o fluxo — trocar de volta para IDs reais após confirmar
+const adUnitId = TestIds.INTERSTITIAL;
 
 let ad: InterstitialAd | null = null;
 let adLoaded = false;
