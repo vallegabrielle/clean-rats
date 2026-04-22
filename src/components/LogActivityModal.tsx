@@ -2,7 +2,7 @@ import { Modal, View, Text, TouchableOpacity, ScrollView, KeyboardAvoidingView, 
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useSheetDismiss } from '../hooks/useSheetDismiss';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHouseStore, selectActiveHouse } from '../contexts/HouseContext';
 import { useShallow } from 'zustand/react/shallow';
@@ -40,6 +40,7 @@ export function LogActivityModal({
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const pendingAd = useRef(false);
   useSheetDismiss(handleClose);
 
   const currentTaskId = editingLogId
@@ -52,9 +53,18 @@ export function LogActivityModal({
     onClose();
   }
 
+  // iOS: onDismiss fires after the modal VC is fully removed from the iOS
+  // presentation hierarchy — the only safe moment to present an interstitial.
+  function handleModalDismiss() {
+    if (pendingAd.current) {
+      pendingAd.current = false;
+      showInterstitial();
+    }
+  }
+
   function scheduleAdIfDue() {
     if (sessionLogCount % 3 === 0) {
-      setTimeout(showInterstitial, 700);
+      pendingAd.current = true;
     }
   }
 
@@ -97,7 +107,7 @@ export function LogActivityModal({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose} onDismiss={handleModalDismiss}>
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={handleClose} />
 
       <KeyboardAvoidingView
