@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useFonts, Bungee_400Regular } from '@expo-google-fonts/bungee';
 import { NotoSansMono_400Regular } from '@expo-google-fonts/noto-sans-mono';
 import { Platform, View, ActivityIndicator } from 'react-native';
-import MobileAds from 'react-native-google-mobile-ads';
+import MobileAds, { AdsConsent } from 'react-native-google-mobile-ads';
 import { initInterstitialAd } from './src/utils/adManager';
 import { trackScreen } from './src/utils/analytics';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
@@ -115,12 +115,16 @@ function AppContent() {
     if (authLoading || !isAuthenticated || adsInitialized.current) return;
     adsInitialized.current = true;
 
-    Promise.race([
-      MobileAds().initialize(),
-      new Promise<void>((r) => setTimeout(r, 5000)),
-    ])
-      .catch(() => {})
-      .finally(() => initInterstitialAd());
+    (async () => {
+      try { await AdsConsent.requestInfoUpdate(); } catch { /* non-blocking */ }
+      try {
+        await Promise.race([
+          MobileAds().initialize(),
+          new Promise<void>((r) => setTimeout(r, 5000)),
+        ]);
+      } catch { /* non-blocking */ }
+      initInterstitialAd();
+    })();
   }, [authLoading, isAuthenticated]);
 
   if (!fontsLoaded || authLoading || onboardingDone === null) {
