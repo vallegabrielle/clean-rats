@@ -13,7 +13,7 @@ import { Task } from '../types';
 import { TaskCard } from '../components/tasks/TaskCard';
 import { TaskForm, EditingTask } from '../components/tasks/TaskForm';
 import { showToast } from '../components/Toast';
-import { maybeShowInterstitial } from '../utils/adManager';
+import { showInterstitial } from '../utils/adManager';
 import { trackCreateTask } from '../utils/analytics';
 
 let sessionTaskAddCount = 0;
@@ -54,7 +54,7 @@ export default function TasksScreen() {
       showToast(t('tasks.taskAdded'), 'success');
       setShowAddForm(false);
       if (sessionTaskAddCount % 3 === 0) {
-        setTimeout(() => { try { maybeShowInterstitial(); } catch { /* silent */ } }, 350);
+        setTimeout(showInterstitial, 350);
       }
     } finally {
       setLoadingAdd(false);

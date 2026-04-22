@@ -11,7 +11,7 @@ import { styles } from './log-activity/styles';
 import { TaskList } from './log-activity/TaskList';
 import { CustomTaskForm } from './log-activity/CustomTaskForm';
 import { DateSelector } from './log-activity/DateSelector';
-import { maybeShowInterstitial } from '../utils/adManager';
+import { showInterstitial } from '../utils/adManager';
 import { trackLogActivity } from '../utils/analytics';
 
 // Persists across modal opens within a session. Resets on cold start (intentional).
@@ -53,12 +53,8 @@ export function LogActivityModal({
   }
 
   function scheduleAdIfDue() {
-    console.log('[LogActivityModal] scheduleAdIfDue', { sessionLogCount, isDue: sessionLogCount % 3 === 0 });
     if (sessionLogCount % 3 === 0) {
-      setTimeout(() => {
-        console.log('[LogActivityModal] firing maybeShowInterstitial after 700ms delay');
-        try { maybeShowInterstitial(); } catch (e) { console.log('[LogActivityModal] maybeShowInterstitial threw:', e); }
-      }, 700);
+      setTimeout(showInterstitial, 700);
     }
   }
 

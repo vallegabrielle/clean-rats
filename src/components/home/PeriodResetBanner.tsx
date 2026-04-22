@@ -5,7 +5,7 @@ import { COLORS } from '../../constants';
 import { MemberScore } from '../../types';
 import { useHouseStore } from '../../contexts/HouseContext';
 import { useShallow } from 'zustand/react/shallow';
-import { maybeShowInterstitial } from '../../utils/adManager';
+import { showInterstitial } from '../../utils/adManager';
 
 interface Props {
   houseId: string;
@@ -79,7 +79,7 @@ export function PeriodResetBanner() {
   // Banner renders regardless of whether the ad fires.
   useEffect(() => {
     if (!lastResetInfo) return;
-    try { maybeShowInterstitial(); } catch { /* silent */ }
+    showInterstitial();
   }, [lastResetInfo]);
 
   // Banner renders regardless of whether the ad fires.
