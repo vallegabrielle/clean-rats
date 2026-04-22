@@ -1,3 +1,21 @@
+const { withDangerousMod } = require('@expo/config-plugins');
+const fs = require('fs');
+const path = require('path');
+
+const withModularHeaders = (config) =>
+    withDangerousMod(config, [
+        'ios',
+        (config) => {
+            const podfilePath = path.join(config.modRequest.platformProjectRoot, 'Podfile');
+            let contents = fs.readFileSync(podfilePath, 'utf-8');
+            if (!contents.includes('use_modular_headers!')) {
+                contents = contents.replace(/^(platform :ios.*)/m, '$1\nuse_modular_headers!');
+                fs.writeFileSync(podfilePath, contents);
+            }
+            return config;
+        },
+    ]);
+
 /** @type {import('@expo/config').ExpoConfig} */
 module.exports = {
     name: 'Clean Rats',
@@ -37,6 +55,7 @@ module.exports = {
         favicon: './assets/cleaner_rat_red_bg.png',
     },
     plugins: [
+        withModularHeaders,
         '@react-native-firebase/app',
         'expo-font',
         'expo-web-browser',
