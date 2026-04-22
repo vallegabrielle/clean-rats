@@ -53,8 +53,12 @@ export function LogActivityModal({
   }
 
   function scheduleAdIfDue() {
+    console.log('[LogActivityModal] scheduleAdIfDue', { sessionLogCount, isDue: sessionLogCount % 3 === 0 });
     if (sessionLogCount % 3 === 0) {
-      setTimeout(() => { try { maybeShowInterstitial(); } catch { /* silent */ } }, 700);
+      setTimeout(() => {
+        console.log('[LogActivityModal] firing maybeShowInterstitial after 700ms delay');
+        try { maybeShowInterstitial(); } catch (e) { console.log('[LogActivityModal] maybeShowInterstitial threw:', e); }
+      }, 700);
     }
   }
 
