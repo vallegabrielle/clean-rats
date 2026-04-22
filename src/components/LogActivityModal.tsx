@@ -2,7 +2,7 @@ import { Modal, View, Text, TouchableOpacity, ScrollView, KeyboardAvoidingView, 
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useSheetDismiss } from '../hooks/useSheetDismiss';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHouseStore, selectActiveHouse } from '../contexts/HouseContext';
 import { useShallow } from 'zustand/react/shallow';
@@ -43,6 +43,20 @@ export function LogActivityModal({
   const pendingAd = useRef(false);
   useSheetDismiss(handleClose);
 
+  // Fallback: fires on Android (no onDismiss) and as safety net on iOS.
+  // pendingAd.current check ensures only one path shows the ad.
+  useEffect(() => {
+    if (!visible && pendingAd.current) {
+      const timer = setTimeout(() => {
+        if (pendingAd.current) {
+          pendingAd.current = false;
+          showInterstitial();
+        }
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [visible]);
+
   const currentTaskId = editingLogId
     ? logs.find((l) => l.id === editingLogId)?.taskId
     : undefined;
@@ -56,6 +70,7 @@ export function LogActivityModal({
   // iOS: onDismiss fires after the modal VC is fully removed from the iOS
   // presentation hierarchy — the only safe moment to present an interstitial.
   function handleModalDismiss() {
+    showToast(`onDismiss: pending=${pendingAd.current}`, 'success');
     if (pendingAd.current) {
       pendingAd.current = false;
       showInterstitial();
@@ -63,7 +78,9 @@ export function LogActivityModal({
   }
 
   function scheduleAdIfDue() {
-    if (sessionLogCount % 3 === 0) {
+    const due = sessionLogCount % 3 === 0;
+    showToast(`log #${sessionLogCount} due=${due}`, 'success');
+    if (due) {
       pendingAd.current = true;
     }
   }
