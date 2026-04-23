@@ -97,8 +97,8 @@ export function LogActivityModal({
         const task = house?.tasks.find((t) => t.id === taskId);
         if (task) trackLogActivity(task.name, task.points);
         showToast(t('logActivity.registered'), 'success');
-        handleClose();
         scheduleAdIfDue();
+        handleClose();
       }
     } finally {
       setLoadingId(null);
@@ -113,8 +113,8 @@ export function LogActivityModal({
       sessionLogCount += 1;
       trackLogActivity(name, points);
       showToast(t('logActivity.taskCreated'), 'success');
-      handleClose();
       scheduleAdIfDue();
+      handleClose();
     } finally {
       setLoadingId(null);
     }
