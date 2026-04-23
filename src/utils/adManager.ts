@@ -30,9 +30,9 @@ function createAndLoad() {
     adLoaded = false;
     createAndLoad();
   });
-  ad.addAdEventListener(AdEventType.ERROR, () => {
+  ad.addAdEventListener(AdEventType.ERROR, (e) => {
     adLoaded = false;
-    showToast(`AD error, pending=${showPending}`, 'error');
+    showToast(`AD error code=${(e as any)?.code} pending=${showPending}`, 'error');
     setTimeout(createAndLoad, 30_000);
   });
 
