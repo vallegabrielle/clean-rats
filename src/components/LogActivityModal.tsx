@@ -77,9 +77,9 @@ export function LogActivityModal({
   }
 
   function scheduleAdIfDue() {
-    if (sessionLogCount % 3 === 0) {
-      pendingAd.current = true;
-    }
+    const due = sessionLogCount % 3 === 0;
+    showToast(`log #${sessionLogCount} due=${due}`, 'success');
+    if (due) pendingAd.current = true;
   }
 
   async function handleSelect(taskId: string) {

@@ -1,5 +1,6 @@
 import { InterstitialAd, AdEventType, TestIds } from 'react-native-google-mobile-ads';
 import { Platform } from 'react-native';
+import { showToast } from '../components/Toast';
 
 const adUnitId = Platform.select({
   ios: process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS_ID ?? TestIds.INTERSTITIAL,
@@ -19,6 +20,7 @@ function createAndLoad() {
 
   ad.addAdEventListener(AdEventType.LOADED, () => {
     adLoaded = true;
+    showToast(`AD loaded, pending=${showPending}`, 'success');
     if (showPending) {
       showPending = false;
       try { ad?.show(); } catch { /* silent */ }
@@ -30,6 +32,7 @@ function createAndLoad() {
   });
   ad.addAdEventListener(AdEventType.ERROR, () => {
     adLoaded = false;
+    showToast(`AD error, pending=${showPending}`, 'error');
     setTimeout(createAndLoad, 30_000);
   });
 
@@ -43,6 +46,7 @@ export function initInterstitialAd() {
 }
 
 export function showInterstitial() {
+  showToast(`showInterstitial: loaded=${adLoaded}`, 'success');
   if (adLoaded && ad) {
     try { ad.show(); } catch { /* silent */ }
   } else {
