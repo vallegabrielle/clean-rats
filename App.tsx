@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useFonts, Bungee_400Regular } from '@expo-google-fonts/bungee';
 import { NotoSansMono_400Regular } from '@expo-google-fonts/noto-sans-mono';
 import { Platform, View, ActivityIndicator } from 'react-native';
-import MobileAds, { AdsConsent } from 'react-native-google-mobile-ads';
+import MobileAds, { AdsConsent, AdsConsentStatus } from 'react-native-google-mobile-ads';
+import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import { initInterstitialAd } from './src/utils/adManager';
 import { trackScreen } from './src/utils/analytics';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
@@ -116,7 +117,20 @@ function AppContent() {
     adsInitialized.current = true;
 
     (async () => {
-      try { await AdsConsent.requestInfoUpdate(); } catch { /* non-blocking */ }
+      try {
+        const consentInfo = await AdsConsent.requestInfoUpdate();
+        if (
+          consentInfo.isConsentFormAvailable &&
+          consentInfo.status === AdsConsentStatus.REQUIRED
+        ) {
+          try { await AdsConsent.loadAndShowConsentFormIfRequired(); } catch { /* non-blocking */ }
+        }
+      } catch { /* non-blocking */ }
+
+      if (Platform.OS === 'ios') {
+        try { await requestTrackingPermissionsAsync(); } catch { /* non-blocking */ }
+      }
+
       try {
         await Promise.race([
           MobileAds().initialize(),

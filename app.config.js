@@ -60,6 +60,7 @@ module.exports = {
         'expo-font',
         'expo-web-browser',
         'expo-apple-authentication',
+        'expo-tracking-transparency',
         [
             'expo-notifications',
             {
