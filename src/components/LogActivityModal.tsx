@@ -17,6 +17,17 @@ import { trackLogActivity } from '../utils/analytics';
 // Persists across modal opens within a session. Resets on cold start (intentional).
 let sessionLogCount = 0;
 
+// Retries showInterstitial every 600ms up to maxAttempts times.
+// Needed when the ad hasn't finished loading at the moment the modal closes.
+function showInterstitialWithRetry(maxAttempts = 6) {
+  if (showInterstitial()) return;
+  let attempts = 0;
+  const interval = setInterval(() => {
+    attempts += 1;
+    if (showInterstitial() || attempts >= maxAttempts) clearInterval(interval);
+  }, 600);
+}
+
 export function LogActivityModal({
   visible,
   onClose,
@@ -43,14 +54,14 @@ export function LogActivityModal({
   const pendingAd = useRef(false);
   useSheetDismiss(handleClose);
 
-  // Fallback: fires on Android (no onDismiss) and as safety net on iOS.
-  // pendingAd.current check ensures only one path shows the ad.
+  // Android fallback: onDismiss doesn't exist on Android.
+  // On iOS this fires only if onDismiss didn't (race guard via pendingAd.current).
   useEffect(() => {
     if (!visible && pendingAd.current) {
       const timer = setTimeout(() => {
         if (pendingAd.current) {
           pendingAd.current = false;
-          showInterstitial();
+          showInterstitialWithRetry();
         }
       }, 800);
       return () => clearTimeout(timer);
@@ -67,18 +78,11 @@ export function LogActivityModal({
     onClose();
   }
 
-  // iOS: onDismiss fires after the modal VC is fully removed from the iOS
-  // presentation hierarchy — the only safe moment to present an interstitial.
+  // iOS: onDismiss fires after the modal VC is fully gone — safest moment to show an interstitial.
   function handleModalDismiss() {
     if (pendingAd.current) {
       pendingAd.current = false;
-      showInterstitial();
-    }
-  }
-
-  function scheduleAdIfDue() {
-    if (sessionLogCount % 3 === 0) {
-      pendingAd.current = true;
+      showInterstitialWithRetry();
     }
   }
 
@@ -97,7 +101,7 @@ export function LogActivityModal({
         const task = house?.tasks.find((t) => t.id === taskId);
         if (task) trackLogActivity(task.name, task.points);
         showToast(t('logActivity.registered'), 'success');
-        scheduleAdIfDue();
+        if (sessionLogCount % 3 === 0) pendingAd.current = true;
         handleClose();
       }
     } finally {
@@ -113,7 +117,7 @@ export function LogActivityModal({
       sessionLogCount += 1;
       trackLogActivity(name, points);
       showToast(t('logActivity.taskCreated'), 'success');
-      scheduleAdIfDue();
+      if (sessionLogCount % 3 === 0) pendingAd.current = true;
       handleClose();
     } finally {
       setLoadingId(null);

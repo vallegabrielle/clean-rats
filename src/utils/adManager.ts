@@ -9,30 +9,14 @@ const adUnitId = Platform.select({
 let ad: InterstitialAd | null = null;
 let adLoaded = false;
 let initialized = false;
-let showPending = false;
 
 function createAndLoad() {
   if (ad) ad.removeAllListeners();
-
   ad = InterstitialAd.createForAdRequest(adUnitId);
   adLoaded = false;
-
-  ad.addAdEventListener(AdEventType.LOADED, () => {
-    adLoaded = true;
-    if (showPending) {
-      showPending = false;
-      try { ad?.show(); } catch { /* silent */ }
-    }
-  });
-  ad.addAdEventListener(AdEventType.CLOSED, () => {
-    adLoaded = false;
-    createAndLoad();
-  });
-  ad.addAdEventListener(AdEventType.ERROR, () => {
-    adLoaded = false;
-    setTimeout(createAndLoad, 30_000);
-  });
-
+  ad.addAdEventListener(AdEventType.LOADED, () => { adLoaded = true; });
+  ad.addAdEventListener(AdEventType.CLOSED, () => { adLoaded = false; createAndLoad(); });
+  ad.addAdEventListener(AdEventType.ERROR, () => { adLoaded = false; setTimeout(createAndLoad, 30_000); });
   ad.load();
 }
 
@@ -42,10 +26,15 @@ export function initInterstitialAd() {
   createAndLoad();
 }
 
-export function showInterstitial() {
+// Returns true if the ad was shown. Caller should retry if false.
+export function showInterstitial(): boolean {
   if (adLoaded && ad) {
-    try { ad.show(); } catch { /* silent */ }
-  } else {
-    showPending = true;
+    try {
+      ad.show();
+      return true;
+    } catch {
+      return false;
+    }
   }
+  return false;
 }
