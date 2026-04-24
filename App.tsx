@@ -100,6 +100,15 @@ function AppContent() {
   });
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
   const adsInitialized = useRef(false);
+  const [attDone, setAttDone] = useState(Platform.OS !== 'ios');
+
+  // Request ATT on first render, before any tracking data is collected
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    requestTrackingPermissionsAsync()
+      .catch(() => {})
+      .finally(() => setAttDone(true));
+  }, []);
 
   useEffect(() => {
     AsyncStorage.getItem(ONBOARDING_KEY).then((val) => {
@@ -113,7 +122,7 @@ function AppContent() {
   }, [authLoading, isAuthenticated, user?.uid]);
 
   useEffect(() => {
-    if (authLoading || !isAuthenticated || adsInitialized.current) return;
+    if (authLoading || !isAuthenticated || !attDone || adsInitialized.current) return;
     adsInitialized.current = true;
 
     (async () => {
@@ -127,10 +136,6 @@ function AppContent() {
         }
       } catch { /* non-blocking */ }
 
-      if (Platform.OS === 'ios') {
-        try { await requestTrackingPermissionsAsync(); } catch { /* non-blocking */ }
-      }
-
       try {
         await Promise.race([
           MobileAds().initialize(),
@@ -139,7 +144,7 @@ function AppContent() {
       } catch { /* non-blocking */ }
       initInterstitialAd();
     })();
-  }, [authLoading, isAuthenticated]);
+  }, [authLoading, isAuthenticated, attDone]);
 
   if (!fontsLoaded || authLoading || onboardingDone === null) {
     return (
