@@ -3,7 +3,7 @@ import 'react-native-gesture-handler';
 import { useEffect, useRef, useState } from 'react';
 import { useFonts, Bungee_400Regular } from '@expo-google-fonts/bungee';
 import { NotoSansMono_400Regular } from '@expo-google-fonts/noto-sans-mono';
-import { Platform, View, ActivityIndicator } from 'react-native';
+import { AppState, Platform, View, ActivityIndicator } from 'react-native';
 import MobileAds, { AdsConsent, AdsConsentStatus } from 'react-native-google-mobile-ads';
 import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import { initInterstitialAd } from './src/utils/adManager';
@@ -102,12 +102,28 @@ function AppContent() {
   const adsInitialized = useRef(false);
   const [attDone, setAttDone] = useState(Platform.OS !== 'ios');
 
-  // Request ATT on first render, before any tracking data is collected
+  // Request ATT only when the app is active — iOS silently returns notDetermined
+  // without showing the dialog if called before UIApplicationStateActive
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
-    requestTrackingPermissionsAsync()
-      .catch(() => {})
-      .finally(() => setAttDone(true));
+
+    const request = () =>
+      requestTrackingPermissionsAsync()
+        .catch(() => {})
+        .finally(() => setAttDone(true));
+
+    if (AppState.currentState === 'active') {
+      request();
+      return;
+    }
+
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        sub.remove();
+        request();
+      }
+    });
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {
