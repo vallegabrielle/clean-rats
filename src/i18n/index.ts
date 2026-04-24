@@ -7,9 +7,10 @@ import es from './locales/es.json';
 import de from './locales/de.json';
 import fr from './locales/fr.json';
 import it from './locales/it.json';
+import nl from './locales/nl.json';
 
 const deviceLocale = getLocales()[0]?.languageCode ?? 'pt';
-const supportedLocales = ['pt', 'en', 'es', 'de', 'fr', 'it'];
+const supportedLocales = ['pt', 'en', 'es', 'de', 'fr', 'it', 'nl'];
 const lng = supportedLocales.includes(deviceLocale) ? deviceLocale : 'pt';
 
 i18n.use(initReactI18next).init({
@@ -20,6 +21,7 @@ i18n.use(initReactI18next).init({
     de: { translation: de },
     fr: { translation: fr },
     it: { translation: it },
+    nl: { translation: nl },
   },
   lng,
   fallbackLng: 'pt',
